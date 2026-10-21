@@ -52,6 +52,4 @@ if st.button("🔍 بدء تحليل الحادث"):
                     st.info(response.text)
                 except Exception as e:
                     st.error(f"حدث خطأ في الاتصال: {e}")
-streamlit
-google-generativeai
-PyPDF2
+
