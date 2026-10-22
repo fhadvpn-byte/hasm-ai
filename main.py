@@ -9,7 +9,12 @@ st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
 # --- 2. إعداد الذكاء الاصطناعي ---
-API_KEY = "AQ.Ab8RN6LLWlu9ULEhJqJFdjSR6rt4HgOzfMAyUB2IS43XwIBtVA" # ضع مفتاح الجيميني الحقيقي هنا يبدأ بـ AIza
+# سنستخدم الطريقة الآمنة لقراءة المفتاح من إعدادات المنصة
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except:
+    API_KEY = "AQ.Ab8RN6LLWlu9ULEhJqJFdjSR6rt4HgOzfMAyUB2IS43XwIBtVA"
+
 genai.configure(api_key=API_KEY)
 
 # قراءة الملف بطريقة مضمونة ومباشرة
@@ -48,4 +53,4 @@ if st.button("🔍 بدء تحليل الحادث"):
                 st.markdown("### 📋 التقرير النظامي للحادث:")
                 st.info(response.text)
             except Exception as e:
-                st.error(f"حدث خطأ في الاتصال: {e}")
+                st.error(f"حدث خطأ في الاتصال أو المفتاح: {e}")
