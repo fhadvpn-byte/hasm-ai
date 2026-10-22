@@ -9,7 +9,7 @@ st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
 # --- 2. إعداد الذكاء الاصطناعي ---
-API_KEY = "AQ.Ab8RN6JYvT-eC4PXmkiTszM2CX9fUD91h1iLTJ5b2Buh2v2yXw" # ضع مفتاح الجيميني الحقيقي هنا يبدأ بـ AIza
+API_KEY = "AQ.Ab8RN6LLWlu9ULEhJqJFdjSR6rt4HgOzfMAyUB2IS43XwIBtVA" # ضع مفتاح الجيميني الحقيقي هنا يبدأ بـ AIza
 genai.configure(api_key=API_KEY)
 
 # قراءة الملف بطريقة مضمونة ومباشرة
