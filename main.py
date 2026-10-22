@@ -6,49 +6,51 @@ st.set_page_config(page_title="برنامج حَسْم - تحليل الحواد
 st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
-st.success("✅ تم ربط النظام بنجاح (مع قاعدة نسب المسؤولية 25%، 50%، 75%، 100%)")
+st.success("✅ تم ربط النظام بنجاح (قوائم الخيارات المعتمدة لتحديد المسؤولية)")
 
 # --- 2. تهيئة حالة الجلسة (Session State) ---
-if 'accident_desc' not in st.session_state:
-    st.session_state['accident_desc'] = ""
 if 'report_ready' not in st.session_state:
     st.session_state['report_ready'] = False
 
 # دالة لمسح الحقول والتقرير بالكامل
-def clear_text():
-    st.session_state['accident_desc'] = ""
-    st.session_state['accident_desc_input'] = ""
+def clear_inputs():
     st.session_state['report_ready'] = False
 
-# --- 3. واجهة إدخال الحادث والتحليل المباشر ---
+# --- 3. واجهة القوائم المنسدلة لاختيار معطيات الحادث ---
 st.markdown("---")
-accident_desc = st.text_area(
-    "📝 أدخل تفاصيل الحادث (المركبات، الاتجاهات، الإشارات، الخ)", 
-    value=st.session_state['accident_desc'],
-    key='accident_desc_input',
-    height=150
+st.markdown("### 📋 اختيار معطيات الحادث بدقة")
+
+# قائمة اختيار نوع الحادث أو السيناريو
+accident_type = st.selectbox(
+    "اختر نوع الحادث / سيناريو الاصطدام:",
+    [
+        "اختر نوع الحادث...",
+        "صدم من الخلف (المركبة الخلفية اصطدمت بالأمامية)",
+        "دخول دوار (عدم إعطاء الأولوية لمن بداخل الدوار)",
+        "تغيير مسار أو انحراف مفاجئ (بين مسارين)",
+        "رجوع للخلف (المركبة المرتجعة اصطدمت بواقفة)",
+        "تقاطع أو تصادم مشترك (أولوية متبادلة / 50%)"
+    ]
 )
 
-# تحديث النص في الجلسة
-st.session_state['accident_desc'] = accident_desc
+# خانة إضافية للملاحظات الاختيارية
+additional_desc = st.text_area("📝 ملاحظات أو تفاصيل إضافية (اختياري)", height=80)
 
 # توزيع الأزرار (بدء التحليل ومسح)
 col1, col2 = st.columns([3, 1])
 with col1:
     analyze_btn = st.button("🔍 بدء تحليل الحادث بالذكاء الاصطناعي", use_container_width=True)
 with col2:
-    clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
+    clear_btn = st.button("🗑️ مسح", on_click=clear_inputs, use_container_width=True)
 
 if analyze_btn:
-    if st.session_state['accident_desc'].strip() == "":
-        st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
+    if accident_type == "اختر نوع الحادث...":
+        st.warning("⚠️ الرجاء اختيار نوع الحادث من القائمة أولاً")
     else:
         with st.spinner("⏳ جاري فحص الحادث وتحديد نسب المسؤولية..."):
             
-            desc_lower = st.session_state['accident_desc'].lower()
-            
-            # تحديد النسب والسيناريوهات بدقة بناءً على الوصف المدخل
-            if any(word in desc_lower for word in ["رجوع", "بالرجوع", "للخلف", "يراجع"]):
+            # تحديد النسب بناءً على الخيار المحدد في القائمة
+            if "رجوع للخلف" in accident_type:
                 error_percentage = "100% على المركبة التي قامت بالرجوع للخلف"
                 tech_analysis = """
 1. **وضعية المركبات:** إحدى المركبات كانت في وضعية الوقوف التام والصحيح، بينما قامت المركبة الأخرى بالتحرك للخلف.
@@ -62,7 +64,8 @@ if analyze_btn:
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث رجوع للخلف.
 
-**وصف الحادث:** {st.session_state['accident_desc']}
+**الخيار المختار:** {accident_type}
+**ملاحظات إضافية:** {additional_desc if additional_desc else "لا توجد"}
 
 **التحليل الفني والقانوني:** تبين من المعطيات أن المركبة المتسببة قامت بالرجوع للخلف واصطدمت بالمركبة الواقفة بشكل نظامي. وحق الأولوية والوقوف الآمن يكفل للمركبة الواقفة عدم تحمل أي مسؤولية.
 
@@ -70,7 +73,7 @@ if analyze_btn:
 * **نسبة الخطأ والمسؤولية:** 100% على قائد المركبة التي قامت بالرجوع للخلف.
 * **السند النظامي:** مخالفة قواعد الرجوع للخلف وعدم التأكد من خلو الطريق.
                 """
-            elif any(word in desc_lower for word in ["مسار", "انحرف", "انتقال", "تعدى", "تغيير"]):
+            elif "تغيير مسار" in accident_type:
                 error_percentage = "75% على الطرف المتسبب بالانحراف و 25% على الطرف الآخر"
                 tech_analysis = """
 1. **وضعية المركبات:** سير المركبات في مسارات متوازية مع حصول انحراف أو انتقال من مسار إلى آخر.
@@ -85,7 +88,8 @@ if analyze_btn:
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث انحراف وتغيير مسار.
 
-**وصف الحادث:** {st.session_state['accident_desc']}
+**الخيار المختار:** {accident_type}
+**ملاحظات إضافية:** {additional_desc if additional_desc else "لا توجد"}
 
 **التحليل الفني والقانوني:** تبين من المعطيات حصول انحراف غير آمن من أحد الأطراف أدى إلى التداخل والاصطدام. وحيث تقضي القواعد المرورية بتحمل المتسبب بالانحراف النسبة الكبرى، مع رصد نسبة جزئية لعدم الانتباه للطرف الآخر.
 
@@ -93,7 +97,7 @@ if analyze_btn:
 * **نسبة الخطأ والمسؤولية:** 75% على المتسبب بالانحراف، و 25% على الطرف الثاني.
 * **السند النظامي:** مخالفة قواعد الانتقال بين المسارات.
                 """
-            elif "تداصم" in desc_lower or "مشترك" in desc_lower or "خطأ مشترك" in desc_lower or ("تقاطع" in desc_lower and "خطأ" in desc_lower):
+            elif "تصادم مشترك" in accident_type:
                 error_percentage = "50% على كل طرف (خطأ مشترك)"
                 tech_analysis = """
 1. **وضعية المركبات:** وصول المركبتين إلى نقطة تقاطع أو مسار مشترك في نفس الوقت.
@@ -107,7 +111,8 @@ if analyze_btn:
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث تقاطع بمسؤولية مشتركة.
 
-**وصف الحادث:** {st.session_state['accident_desc']}
+**الخيار المختار:** {accident_type}
+**ملاحظات إضافية:** {additional_desc if additional_desc else "لا توجد"}
 
 **التحليل الفني والقانوني:** التقاء مسار الطرفين دون إعطاء الأولوية النظامية أو تأكيد خلو الطريق، مما يجعل المسؤولية موزعة مناصفة.
 
@@ -115,7 +120,7 @@ if analyze_btn:
 * **نسبة الخطأ والمسؤولية:** 50% على الطرف الأول و 50% على الطرف الثاني.
 * **السند النظامي:** قواعد الأولويات المشتركة.
                 """
-            elif "دوار" in desc_lower:
+            elif "دوار" in accident_type:
                 error_percentage = "100% على المركبة الداخلة للدوار"
                 tech_analysis = """
 1. **وضعية المركبات:** المركبة الأولى مستقرة داخل الدوار، والمركبة الثانية في حالة دخول.
@@ -129,7 +134,8 @@ if analyze_btn:
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث تقاطع (دوار).
 
-**وصف الحادث:** {st.session_state['accident_desc']}
+**الخيار المختار:** {accident_type}
+**ملاحظات إضافية:** {additional_desc if additional_desc else "لا توجد"}
 
 **التحليل الفني والقانوني:** الأولوية النظامية المطلقة لمن بداخل الدوار، ودخول أي مركبة دون التأكد من الخلو يعرضها لكامل المسؤولية.
 
@@ -150,7 +156,8 @@ if analyze_btn:
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث مروري نظامي.
 
-**وصف الحادث:** {st.session_state['accident_desc']}
+**الخيار المختار:** {accident_type}
+**ملاحظات إضافية:** {additional_desc if additional_desc else "لا توجد"}
 
 **التحليل الفني والقانوني:** دراسة المعطيات وتطبيق المواد النظامية ذات العلاقة لتحديد المسؤولية الكاملة.
 
