@@ -86,20 +86,51 @@ if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطنا�
 * تحديد المسؤولية بناءً على القواعد المرورية المعتمدة.
                 """
 
-            # عرض التقرير بالتنسيق المفصل والجديد
-            st.markdown("### 📋 التقرير النظامي المفصل للحادث")
-            
-            st.markdown("---")
-            st.markdown("### أولاً: التحليل الفني للحادث")
-            st.markdown(tech_analysis)
-            
-            st.markdown("---")
-            st.markdown("### ثانياً: التكييف النظامي (المخالفة)")
-            st.markdown(legal_qualification)
-            
-            st.markdown("---")
-            st.markdown("### ثالثاً: تقرير الحادث (بصياغة رسمية)")
-            st.markdown(official_report)
-            
-            st.markdown("---")
-            st.caption("ملاحظة: هذا التحليل مبني على الوصف المقدم، وفي الواقع الميداني يتم الاعتماد على تقرير المرور أو نظام نجم بناءً على المعاينة ومواقع التلفيات.")
+            # حفظ التقرير في الجلسة لعرضه وطباعته
+            st.session_state['report_ready'] = True
+            st.session_state['tech_analysis'] = tech_analysis
+            st.session_state['legal_qualification'] = legal_qualification
+            st.session_state['official_report'] = official_report
+
+# عرض التقرير إذا كان جاهزاً
+if st.session_state.get('report_ready', False):
+    st.markdown("---")
+    st.markdown("### 📋 التقرير النظامي المفصل للحادث")
+    
+    st.markdown("---")
+    st.markdown("### أولاً: التحليل الفني للحادث")
+    st.markdown(st.session_state['tech_analysis'])
+    
+    st.markdown("---")
+    st.markdown("### ثانياً: التكييف النظامي (المخالفة)")
+    st.markdown(st.session_state['legal_qualification'])
+    
+    st.markdown("---")
+    st.markdown("### ثالثاً: تقرير الحادث (بصياغة رسمية)")
+    st.markdown(st.session_state['official_report'])
+    
+    st.markdown("---")
+    st.caption("ملاحظة: هذا التحليل مبني على الوصف المقدم، وفي الواقع الميداني يتم الاعتماد على تقرير المرور أو نظام نجم بناءً على المعاينة ومواقع التلفيات.")
+
+    # زر الطباعة المباشرة (يحول الصفحة لخيارات الطباعة أو حفظ PDF)
+    st.markdown("---")
+    print_html = f"""
+    <script>
+    function printReport() {{
+        window.print();
+    }}
+    </script>
+    <button onclick="printReport()" style="
+        background-color: #ff4b4b;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        width: 100%;">
+        🖨️ طباعة التقرير / حفظ كـ PDF
+    <//button>
+    """
+    st.components.v1.html(print_html, height=60)
