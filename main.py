@@ -9,7 +9,7 @@ st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
 # --- 2. إعداد الذكاء الاصطناعي ---
-API_KEY = "AQ.Ab8RN6JYvT-eC4PXmkiTszM2CX9fUD91h1iLTJ5b2Buh2v2yXw"
+API_KEY = "AQ.Ab8RN6JyvT-eC4PXmkiTszM2CX9FUD91h1iLTJ5b2Buh2v2yXw"
 genai.configure(api_key=API_KEY)
 
 # قراءة الملف بطريقة مضمونة ومباشرة
@@ -42,7 +42,7 @@ if st.button("🔍 بدء تحليل الحادث"):
     else:
         with st.spinner("⏳ جاري تحليل الحادث وإصدار التقرير..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-pro')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 prompt = f"بناءً على نظام المرور السعودي، قم بتحليل هذا الحادث بدقة وتحديد نسبة الخطأ والمادة النظامية:\n\nتفاصيل الحادث: {accident_desc}"
                 response = model.generate_content(prompt)
                 st.markdown("### 📋 التقرير النظامي للحادث:")
