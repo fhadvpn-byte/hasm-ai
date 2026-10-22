@@ -18,14 +18,6 @@ st.markdown("""
         border: 2px solid #ffffff;
         box-shadow: 0 6px 12px rgba(0,108,53,0.15);
     }
-    .card-box {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        margin-bottom: 15px;
-    }
     </style>
     
     <div class="main-header">
