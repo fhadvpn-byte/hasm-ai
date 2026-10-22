@@ -1,212 +1,190 @@
 import streamlit as st
+import re
 
-# --- 1. إعداد واجهة البرنامج ---
-st.set_page_config(page_title="برنامج حَسْم - تحليل الحوادث", page_icon="🚓", layout="centered")
-st.title("🚓 برنامج حَسْم الذكي")
+# إعدادات الصفحة وتصميم الواجهة
+st.set_page_config(page_title="برنامج خشم الذكي", layout="centered")
+
+# تنسيق CSS لدعم اتجاه اللغة العربية من اليمين لليسار وتصميم الصناديق والأزرار
+st.markdown("""
+<style>
+    .stApp {
+        direction: rtl;
+        text-align: right;
+    }
+    p, div, h1, h2, h3, h4, span, label, textarea {
+        text-align: right !important;
+        direction: rtl !important;
+    }
+    .green-box {
+        background-color: #0d2e1e;
+        border-right: 5px solid #00a859;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 15px;
+        margin-bottom: 15px;
+    }
+    .print-btn {
+        background-color: #15803d;
+        color: white;
+        padding: 12px;
+        text-align: center !important;
+        border-radius: 8px;
+        font-weight: bold;
+        display: block;
+        width: 100%;
+        text-decoration: none;
+        margin-top: 15px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# 1. دالة استخراج أسماء المركبات تلقائياً (بدون تثبيت كامري ويارس)
+# ---------------------------------------------------------
+def extract_vehicles(text):
+    cars_list = [
+        "اف جي", "إف جي", "صالون", "كامري", "يارس", "هايلكس", "لاندكروزر", 
+        "جيب", "شاص", "ربع", "كورولا", "أكسنت", "اكسنت", "النترا", "إلنترا", 
+        "سوناتا", "أزيرا", "ازيرا", "تاهو", "يوكن", "سوبربان", "كابرس", 
+        "فورد", "تورس", "اكسبلورر", "إكسبلورر", "اكسبدشن", "مازدا", "نيسان", 
+        "باترول", "صني", "التيما", "ألتيما", "مكسيما", "ددسن", "كيا", "سيراتو", 
+        "أوبتيما", "كي 5", "سبورتاج", "شانجان", "ايدو", "إيدو", "جايكو", 
+        "هافال", "جيلي", "ام جي", "إم جي", "لكزس", "مرسيدس", "بي ام", 
+        "شاحنة", "دينا", "تريلا", "قلاب", "وايت", "باص", "حافلة", "دباب", "دراجة"
+    ]
+    
+    found_cars = []
+    for car in cars_list:
+        for match in re.finditer(re.escape(car), text):
+            found_cars.append((match.start(), car))
+    
+    # ترتيب المركبات حسب ظهورها في النص المكتوب
+    found_cars.sort(key=lambda x: x[0])
+    
+    unique_cars = []
+    for pos, car in found_cars:
+        if not any(car in u or u in car for u in unique_cars):
+            unique_cars.append(car)
+
+    if len(unique_cars) >= 2:
+        return unique_cars[0], unique_cars[1]
+    elif len(unique_cars) == 1:
+        return unique_cars[0], "المركبة الثانية"
+    else:
+        # البحث عن الكلمة التي تلي (الأولى / الثانية) إذا لم تكن السيارة في القائمة
+        match1 = re.search(r'(?:الأولى|الاولى|الطرف الأول|الطرف الاول)\s+(?:مركبة\s+|سيارة\s+)?([^\s،.]+)', text)
+        match2 = re.search(r'(?:الثانية|الثانيه|الطرف الثاني)\s+(?:مركبة\s+|سيارة\s+)?([^\s،.]+)', text)
+        p1 = match1.group(1).strip() if match1 else "المركبة الأولى"
+        p2 = match2.group(1).strip() if match2 else "المركبة الثانية"
+        return p1, p2
+
+# ---------------------------------------------------------
+# 2. دالة تحليل الحادث وتوزيع النسب (100%، 75%، 50%، 25%، 0%)
+# ---------------------------------------------------------
+def analyze_accident(text):
+    party1, party2 = extract_vehicles(text)
+    
+    p1_fault = 50
+    p2_fault = 50
+    legal_basis = "المادة (50) - الفقرة (1/1/6) القواعد العامة للأفضلية في التقاطعات"
+    rule_explanation = "تحديد أولوية المرور في التقاطعات غير المنظمة وفقاً لقواعد أسبقية الوصول أو القواعد العامة للأولويات. في حال التكافؤ وعدم إمكانية تحديد الأسبقية، توزع المسؤولية مناصفة بنسبة (50%) لكل طرف."
+
+    # تحليل الاتجاهات والأفضلية ونقاط التصادم
+    p1_north_south = ("شمال" in text and "جنوب" in text)
+    p2_east_west = ("شرق" in text and "غرب" in text)
+    p1_wider = any(w in text for w in ["اوسع", "أوسع", "رئيسي"])
+    both_bumps = text.count("مطب") >= 2
+    p1_front_p2_side = ("مقدمه" in text or "مقدمة" in text) and ("جانب" in text or "الجانب" in text)
+
+    # 1. حالات الخطأ الكامل (100% - 0%)
+    if any(k in text for k in ["عكس السير", "قاطع إشارة", "قطع إشارة", "رجوع للخلف", "من الخلف", "مؤخرة"]):
+        if any(k in text for k in ["الثانيه", "الثانية", party2]):
+            p1_fault, p2_fault = 0, 100
+        else:
+            p1_fault, p2_fault = 100, 0
+        legal_basis = "المادة (50) - مخالفة صريحة لقواعد السير والاتجاهات أو عدم ترك مسافة آمنة"
+        rule_explanation = "يتحمل الطرف المتسبب بالحركة الخاطئة (عكس السير / قطع الإشارة / الرجوع للخلف / الاصطدام من الخلف) كامل المسؤولية النظامية بنسبة (100%)."
+
+    # 2. حالات التقاطعات (75% - 25% أو 100% - 0% أو 50% - 50%)
+    elif "تقاطع" in text or "التقاطع" in text:
+        # إذا كان طريق الأولى أوسع (أو قادمة من اليمين) واصطدمت بمقدمتها في جانب الثانية مع وجود مطبات
+        if (p1_wider or (p1_north_south and p2_east_west)) and (p1_front_p2_side or both_bumps):
+            p1_fault = 25
+            p2_fault = 75
+            legal_basis = "المادة (50) - الفقرة (1/1/6) قواعد الأفضلية في التقاطعات (الأفضلية للطريق الأوسع وللقادم من اليمين مع اشتراك الطرف الآخر)"
+            rule_explanation = f"الأفضلية للمركبة ({party1}) لكونها في المسار الأوسع وعن يمين المركبة الأخرى، وتتحمل المركبة ({party2}) نسبة (75%) لدخولها التقاطع دون إعطاء الأفضلية، بينما تتحمل ({party1}) نسبة (25%) لعدم التهدئة التامة عند المطب الصناعي والاصطدام بمقدمة كاملة في الجانب."
+        
+        # إذا كان طريق الأولى رئيسي أو أوسع بدون مطبات تهدئة للطرف الأول
+        elif p1_wider and not both_bumps:
+            p1_fault = 0
+            p2_fault = 100
+            legal_basis = "المادة (50) - الأفضلية للمركبات السائرة في الطريق الرئيسي أو الأوسع"
+            rule_explanation = f"يتحمل الطرف الثاني ({party2}) كامل المسؤولية (100%) لدخوله من طريق أضيق/فرعي دون التأكد من خلو الطريق الرئيسي."
+
+    return party1, party2, p1_fault, p2_fault, legal_basis, rule_explanation
+
+# ---------------------------------------------------------
+# 3. واجهة المستخدم (Streamlit UI)
+# ---------------------------------------------------------
+st.title("🚓 برنامج خشم الذكي")
 st.subheader("نظام تحليل الحوادث المرورية (تصحيح مطابقة الفاعل والنسب)")
 
 st.success("✅ تم تصحيح محرك قراءة النص لضمان إعطاء الخطأ للطرف المتسبب الفعلي بدقة")
+st.markdown("---")
 
-# --- 2. قاعدة بيانات المواد النظامية الرسمية المطابقة لنظام المرور ---
-TRAFFIC_RULES = {
-    "رجوع": {
-        "keyword": "رجوع",
-        "article": "المادة (50) - الفقرة (٢/٢٤) من نظام المرور ولائحته التنفيذية",
-        "subdivisions": """
-**النص النظامي المعتمد:**
-* على كل سائق قبل القيام بأي حركة خاصة بالانحراف بسيارته يميناً أو شمالاً أو الدوران إلى الخلف في الاتجاه المعاكس لخط سيره مراعاة التأكد من إمكان إجراء ذلك دون خطر وإعطاء الإشارات اللازمة.
-* تتحمل المركبة التي قامت بالرجوع للخلف دون التأكد من خلو الطريق المسؤولية الكاملة بنسبة (100٪).
-        """
-    },
-    "انحراف": {
-        "keyword": "انحراف",
-        "article": "المادة (50) - قواعد الانتقال بين المسارات والانحراف",
-        "subdivisions": """
-**النص النظامي المعتمد:**
-* لا يجوز لقائد المركبة الانتقال من مسار إلى آخر أو الانحراف إلا بعد التأكد من إمكانية القيام بذلك بأمان تام وإعطاء الإشارة التنبيهية اللازمة بوقت كافٍ.
-* توزع المسؤولية بنسبة (75٪) على المركبة المتسببة بالانحراف المفاجئ، و(25٪) على الطرف الآخر لعدم الانتباه الاحترازي (إن وجد).
-        """
-    },
-    "خلف": {
-        "keyword": "خلف",
-        "article": "المادة (35) من نظام المرور والمادة (50) - الفقرة (٢/١٩)",
-        "subdivisions": """
-**النص النظامي المعتمد:**
-* يجب على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تتيح له الوقوف في جميع الظروف وتحت مختلف حالات الطريق[cite: 108].
-* تعتبر المركبة اللاحقة (الصادمة من الخلف) هي المسؤولة كلياً بنسبة (100٪) لعدم ترك مسافة أمان كافية[cite: 108].
-        """
-    },
-    "تقاطع": {
-        "keyword": "تقاطع",
-        "article": "المادة (50) - الفقرة (٦/١/١) القواعد العامة للأفضلية في التقاطعات",
-        "subdivisions": """
-**النص النظامي المعتمد:**
-* تحديد أولوية المرور في التقاطعات غير المنظمة وفقاً لقواعد أسبقية الوصول أو القواعد العامة للأولويات[cite: 63].
-* في حال التكافؤ وعدم إمكانية تحديد الأسبقية، توزع المسؤولية مناصفة بنسبة (50٪) لكل طرف.
-        """
-    },
-    "دوار": {
-        "keyword": "دوار",
-        "article": "المادة (50) - الفقرة (٦/١/١/٦) من نظام المرور",
-        "subdivisions": """
-**النص النظامي المعتمد:**
-* الأفضلية للمركبات التي تسير داخل الدوار (التقاطع الدائري) على المركبات التي ترغب في الدخول إليه[cite: 63].
-* تتحمل المركبة الداخلة للدوار دون إعطاء الأولوية المسؤولية الكاملة بنسبة (100٪).
-        """
-    }
-}
-
-# --- 3. تهيئة حالة الجلسة ---
-if 'accident_desc' not in st.session_state:
-    st.session_state['accident_desc'] = ""
-if 'report_ready' not in st.session_state:
-    st.session_state['report_ready'] = False
+# إدارة زر المسح
+if "accident_input" not in st.session_state:
+    st.session_state.accident_input = ""
 
 def clear_text():
-    st.session_state['accident_desc'] = ""
-    st.session_state['accident_desc_input'] = ""
-    st.session_state['report_ready'] = False
+    st.session_state.accident_input = ""
 
-# --- 4. واجهة إدخال الحادث النصية ---
-st.markdown("---")
-accident_desc = st.text_area(
-    "📝 أدخل تفاصيل الحادث (اذكر بوضوح من قام بالحركة المتسببة كاليارس أو الكامري):", 
-    value=st.session_state['accident_desc'],
-    key='accident_desc_input',
-    height=150
+accident_text = st.text_area(
+    "📝 أدخل تفاصيل الحادث (اذكر بوضوح نوع المركبات واتجاه السير ونقطة التصادم):",
+    key="accident_input",
+    height=160
 )
 
-st.session_state['accident_desc'] = accident_desc
+analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
+clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
 
-col1, col2 = st.columns([3, 1])
-with col1:
-    analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
-with col2:
-    clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
-
-# --- 5. محرك التحليل الذكي للفاعل وتوزيع النسب ---
 if analyze_btn:
-    if st.session_state['accident_desc'].strip() == "":
-        st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
+    if accident_text.strip() == "":
+        st.warning("يرجى إدخال تفاصيل الحادث أولاً.")
     else:
-        with st.spinner("⏳ جاري تحليل النص وتحديد الطرف المتسبب الفعلي..."):
-            
-            text = st.session_state['accident_desc']
-            text_lower = text.lower()
-            
-            matched_rule = None
-            for key, rule in TRAFFIC_RULES.items():
-                if rule["keyword"] in text_lower:
-                    matched_rule = rule
-                    break
-            
-            if not matched_rule:
-                matched_rule = {
-                    "article": "المادة (50) من نظام المرور - الواجبات العامة للسائقين",
-                    "subdivisions": "**النص النظامي:** على السائق توخي الحيطة والحذر والسيطرة على المركبة بما يحقق السلامة العامة."
-                }
-
-            p1_share = "0٪"
-            p2_share = "0٪"
-            
-            # التحقق الذكي من الفاعل في النص:
-            # إذا ذكرت اليارس (أو الطرف الثاني) أنها قامت بالرجوع أو التسبب
-            is_yaris_actor = "يارس" in text_lower and ("رجوع" in text_lower or "بالرجوع" in text_lower or "اصطدمت" in text_lower)
-            is_p2_explicit = "الطرف الثاني" in text or "الثاني" in text
-            is_p1_actor = "الكامري" in text_lower and ("رجوع" in text_lower or "بالرجوع" in text_lower)
-            
-            is_shared = "تقاطع" in text_lower or "مشترك" in text_lower or "مناصفة" in text_lower
-
-            if is_shared:
-                p1_share = "50٪"
-                p2_share = "50٪"
-            elif is_yaris_actor or (is_p2_explicit and not is_p1_actor and ("رجوع" in text_lower or "انحراف" in text_lower)):
-                # إذا كانت اليارس / الطرف الثاني هي من رجعت أو انحرفت -> الخطأ عليها (الطرف الثاني 100%)
-                if "انحراف" in text_lower:
-                    p1_share = "25٪"
-                    p2_share = "75٪"
-                else:
-                    p1_share = "0٪"
-                    p2_share = "100٪"
-            elif is_p1_actor:
-                # إذا كانت الكامري / الطرف الأول هي من فعلت ذلك
-                if "انحراف" in text_lower:
-                    p1_share = "75٪"
-                    p2_share = "25٪"
-                else:
-                    p1_share = "100٪"
-                    p2_share = "0٪"
-            else:
-                # القاعدة الافتراضية الذكية حسب سياق النص (إذا قيل فلان رجع، فالفاعل هو المخطئ)
-                # بما أن النص المدخل يقول: "قام قائد مركبه نوع يارس بالرجوع واصطدمت..." فالبارس هي المتسببة
-                if "يارس" in text_lower:
-                    p1_share = "0٪"
-                    p2_share = "100٪"
-                else:
-                    p1_share = "100٪"
-                    p2_share = "0٪"
-
-            tech_analysis = "تحليل معطيات النص الميداني وتحديد المركبة المتسببة بالفطرة بناءً على وصف حركة الأطراف."
-            legal_qualification = f"### السند القانوني الرسمي:\n* **رقم المادة:** {matched_rule['article']}\n\n{matched_rule['subdivisions']}"
-            
-            official_report = f"""
-**موضوع التقرير:** معاينة حادث مروري وتحليل المسؤولية.
-
-* **وصف الحادث:** {st.session_state['accident_desc']}
-
-**النتيجة النهائية وتوزيع النسب:**
-* **الطرف الأول (الكامري):** {p1_share}
-* **الطرف الثاني (اليارس):** {p2_share}
-* **السند النظامي المطبق:** {matched_rule['article']}
-            """
-
-            st.session_state['report_ready'] = True
-            st.session_state['p1_share'] = p1_share
-            st.session_state['p2_share'] = p2_share
-            st.session_state['tech_analysis'] = tech_analysis
-            st.session_state['legal_qualification'] = legal_qualification
-            st.session_state['official_report'] = official_report
-
-# عرض التقرير إذا كان جاهزاً
-if st.session_state.get('report_ready', False):
-    st.markdown("---")
-    st.markdown("### 📋 التقرير النظامي المفصل للحادث")
-    
-    with st.expander("🔍 أولاً: التحليل الفني للحادث", expanded=True):
-        st.markdown(st.session_state['tech_analysis'])
+        p1, p2, f1, f2, basis, explanation = analyze_accident(accident_text)
         
-    with st.expander("📜 ثانياً: التكييف النظامي ونصوص المواد وتقسيماتها", expanded=True):
-        st.markdown(st.session_state['legal_qualification'])
+        st.markdown("---")
+        st.subheader("📋 التقرير النظامي المفصل للحادث")
         
-    with st.expander("📄 ثالثاً: التقرير الرسمي المعتمد", expanded=True):
-        st.markdown(st.session_state['official_report'])
-    
-    st.markdown(f"""
-        <div style="padding: 20px; border-radius: 12px; border-right: 6px solid #006C35; margin-top: 20px; background: rgba(0,108,53,0.1);">
-            <h3 style="margin: 0 0 10px 0; color: #006C35; font-size: 19px;">📌 النسب النظامية المعتمدة (المصححة):</h3>
-            <p style="margin: 6px 0; font-size: 18px; font-weight: bold;">🚗 الطرف الأول (الكامري): {st.session_state['p1_share']}</p>
-            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #ff4b4b;">🚙 الطرف الثاني (اليارس): {st.session_state['p2_share']}</p>
+        with st.expander("أولاً: التحليل الفني للحادث", expanded=True):
+            st.write("تحليل معطيات النص الميداني وتحديد المركبة المتسببة بالفطرة بناءً على وصف حركة الأطراف:")
+            st.info(f"**النص النظامي المعتمد:**\n\n{explanation}")
+            
+        with st.expander("ثالثاً: التقرير الرسمي المعتمد", expanded=True):
+            st.markdown(f"""
+            **موضوع التقرير:** معاينة حادث مروري وتحليل المسؤولية.
+            
+            **وصف الحادث:** {accident_text}
+            
+            **النتيجة النهائية وتوزيع النسب:**
+            * **الطرف الأول ({p1}):** {f1}%
+            * **الطرف الثاني ({p2}):** {f2}%
+            * **السند النظامي المطبق:** {basis}
+            """)
+            
+        # الصندوق الأخضر للنسب المعتمدة
+        st.markdown(f"""
+        <div class="green-box">
+            <h4 style="color: #4ade80; margin-bottom: 15px;">📌 النسب النظامية المعتمدة (المصححة):</h4>
+            <p style="color: white; font-size: 18px; font-weight: bold; margin: 5px 0;">🚗 الطرف الأول ({p1}): {f1}%</p>
+            <p style="color: #f87171; font-size: 18px; font-weight: bold; margin: 5px 0;">🚙 الطرف الثاني ({p2}): {f2}%</p>
         </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    print_html = f"""
-    <script>
-    function printReport() {{
-        window.print();
-    }}
-    </script>
-    <button onclick="printReport()" style="
-        background-color: #006C35;
-        color: white;
-        padding: 14px 20px;
-        border: none;
-        border-radius: 10px;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        width: 100%;">
-        🖨️ طباعة التقرير الرسمي / حفظ كـ PDF
-    </button>
-    """
-    st.components.v1.html(print_html, height=70)
+        """, unsafe_allow_html=True)
+        
+        # زر الطباعة
+        st.markdown("""
+        <button onclick="window.print()" class="print-btn" style="border:none; cursor:pointer;">
+            🖨️ طباعة التقرير الرسمي / حفظ كـ PDF
+        </button>
+        """, unsafe_allow_html=True)
