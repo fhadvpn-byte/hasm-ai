@@ -8,17 +8,43 @@ st.subheader("نظام تحليل الحوادث المرورية المدعوم
 
 st.success("✅ تم ربط النظام بنجاح (مع قاعدة نسب المسؤولية 25%، 50%، 75%، 100%)")
 
-# --- 2. واجهة إدخال الحادث والتحليل المباشر ---
-st.markdown("---")
-accident_desc = st.text_area("📝 أدخل تفاصيل الحادث (المركبات، الاتجاهات، الإشارات، الخ)", height=150)
+# --- 2. تهيئة حالة الجلسة (Session State) ---
+if 'accident_desc' not in st.session_state:
+    st.session_state['accident_desc'] = ""
+if 'report_ready' not in st.session_state:
+    st.session_state['report_ready'] = False
 
-if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطناعي"):
-    if accident_desc.strip() == "":
+# دالة لمسح الحقول والتقرير
+def clear_text():
+    st.session_state['accident_desc'] = ""
+    st.session_state['report_ready'] = False
+
+# --- 3. واجهة إدخال الحادث والتحليل المباشر ---
+st.markdown("---")
+accident_desc = st.text_area(
+    "📝 أدخل تفاصيل الحادث (المركبات، الاتجاهات، الإشارات، الخ)", 
+    value=st.session_state['accident_desc'],
+    key='accident_desc_input',
+    height=150
+)
+
+# تحديث النص في الجلسة
+st.session_state['accident_desc'] = accident_desc
+
+# توزيع الأزرار (بدء التحليل ومسح)
+col1, col2 = st.columns([3, 1])
+with col1:
+    analyze_btn = st.button("🔍 بدء تحليل الحادث بالذكاء الاصطناعي", use_container_width=True)
+with col2:
+    clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
+
+if analyze_btn:
+    if st.session_state['accident_desc'].strip() == "":
         st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
     else:
         with st.spinner("⏳ جاري فحص الحادث وتحديد نسب المسؤولية..."):
             
-            desc_lower = accident_desc.lower()
+            desc_lower = st.session_state['accident_desc'].lower()
             
             # تحديد النسب والسيناريوهات بناءً على وصف الحادث
             if "تغيير مسار" in desc_lower or "مسار مفاجئ" in desc_lower or "انحراف" in desc_lower:
@@ -36,7 +62,7 @@ if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطنا�
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث تغيير مسار مفاجئ.
 
-**وصف الحادث:** {accident_desc}
+**وصف الحادث:** {st.session_state['accident_desc']}
 
 **التحليل الفني والقانوني:** تبين من المعطيات حصول تغيير مسار غير آمن أدى إلى التداخل والاصطدام الجانبي. وحيث إن نظام المرور يفرض المسؤولية الكبرى على من تسبب بالانحراف المفاجئ، مع رصد نسبة جزئية لعدم الانتباه في حال توفر مساحة تفادي.
 
@@ -58,7 +84,7 @@ if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطنا�
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث تقاطع بمسؤولية مشتركة.
 
-**وصف الحادث:** {accident_desc}
+**وصف الحادث:** {st.session_state['accident_desc']}
 
 **التحليل الفني والقانوني:** أظهرت المعطيات تقاطع مسار الطرفين دون إعطاء الأولوية النظامية الواضحة أو تأكيد خلو الطريق من كلا الجانبين، مما يجعل المسؤولية موزعة مناصفة بينهما.
 
@@ -80,7 +106,7 @@ if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطنا�
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث تقاطع (دوار).
 
-**وصف الحادث:** {accident_desc}
+**وصف الحادث:** {st.session_state['accident_desc']}
 
 **التحليل الفني والقانوني:** الأولوية النظامية المطلقة لمن بداخل الدوار، ودخول أي مركبة دون التأكد من الخلو يعرضها لكامل المسؤولية.
 
@@ -101,7 +127,7 @@ if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطنا�
                 official_report = f"""
 **موضوع التقرير:** تحديد المسؤولية عن حادث مروري نظامي.
 
-**وصف الحادث:** {accident_desc}
+**وصف الحادث:** {st.session_state['accident_desc']}
 
 **التحليل الفني والقانوني:** دراسة المعطيات وتطبيق المواد النظامية ذات العلاقة لتحديد المسؤولية وحجم الخطأ المروري.
 
