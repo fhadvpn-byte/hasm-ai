@@ -18,7 +18,6 @@ except:
 # --- 3. قراءة نصوص نظام المرور من ملف الـ PDF بدقة ---
 @st.cache_data
 def load_traffic_law():
-    # البحث المباشر في نفس مجلد المستودع
     for filename in ["traffic.pdf", "Traffic.pdf", "TRAFFIC.PDF"]:
         if os.path.exists(filename):
             try:
@@ -32,7 +31,6 @@ def load_traffic_law():
             except Exception as e:
                 continue
                 
-    # محاولة إضافية عبر المسار النسبي المطلق
     base_dir = os.path.dirname(os.path.abspath(__file__))
     pdf_path = os.path.join(base_dir, "traffic.pdf")
     if os.path.exists(pdf_path):
@@ -54,7 +52,7 @@ pages_count, law_pages = load_traffic_law()
 if pages_count > 0:
     st.success(f"✅ تم قراءة ملف النظام بنجاح ({pages_count} صفحة جاهزة للتحليل)")
 else:
-    st.error("❌ ملف traffic.pdf موجود ولكن حدث خطأ في قراءة محتواه، تأكد من أن الملف سليم غير تالف.")
+    st.error("❌ ملف traffic.pdf موجود ولكن حدث خطأ في قراءة محتواه.")
 
 # دالة لاستخراج أهم الصفحات والمواد المرتبطة بالحادث
 def get_relevant_law_text(accident_desc, pages):
@@ -110,8 +108,9 @@ if st.button("🔍 بدء تحليل الحادث"):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {API_KEY}"
             }
+            # تم تحديث الموديل إلى النموذج القياسي المعتمد في غروق
             payload = {
-                "model": "llama-3.3-70b-versatile",
+                "model": "llama3-70b-8192",
                 "messages": [
                     {"role": "system", "content": "أنت مستشار مروري خبير في نظام المرور السعودي. تجيب باللغة العربية الفصحى بدقة وتستشهد بالمواد النظامية المرفقة."},
                     {"role": "user", "content": prompt}
