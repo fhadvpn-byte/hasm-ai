@@ -39,7 +39,7 @@ if st.button("🔍 بدء تحليل الحادث"):
             url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": "Bearer {API_KEY}"
+                "Authorization": f"Bearer {API_KEY}"
             }
             payload = {
                 "model": "llama-3.3-70b-versatile",
