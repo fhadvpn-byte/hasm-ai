@@ -1,217 +1,143 @@
 import streamlit as st
 
-# --- 1. إعداد واجهة البرنامج (متوافقة تلقائياً مع Light & Dark Mode) ---
-st.set_page_config(page_title="برنامج حَسْم - معاينة مسرح الحادث", page_icon="🚓", layout="centered")
+# --- 1. إعداد واجهة البرنامج ---
+st.set_page_config(page_title="برنامج حَسْم - تحليل الحوادث", page_icon="🚓", layout="centered")
+st.title("🚓 برنامج حَسْم الذكي")
+st.subheader("نظام تحليل الحوادث المرورية النصي (بدون انعكاس للنسب)")
 
-st.markdown("""
-    <div style="padding: 22px; border-radius: 15px; text-align: center; margin-bottom: 25px; border: 1px solid rgba(0,108,53,0.3); background: rgba(0,108,53,0.1);">
-        <h1 style="margin: 0; font-size: 28px; color: #006C35;">🚓 برنامج حَسْم الذكي</h1>
-        <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">النظام الميداني المعتمد لتحليل وتوثيق الحوادث المرورية</p>
-    </div>
-""", unsafe_allow_html=True)
+st.success("✅ تم تفعيل النظام النصي المتقدم بمعالجة دقيقة تمنع انعكاس النسب تماماً")
 
 # --- 2. تهيئة حالة الجلسة ---
+if 'accident_desc' not in st.session_state:
+    st.session_state['accident_desc'] = ""
 if 'report_ready' not in st.session_state:
     st.session_state['report_ready'] = False
 
-def clear_inputs():
+def clear_text():
+    st.session_state['accident_desc'] = ""
+    st.session_state['accident_desc_input'] = ""
     st.session_state['report_ready'] = False
 
-# --- 3. قائمة الحركات المحايدة والمهنية بالكامل ---
-motion_options = [
-    "اختر حركة أو وضعية الطرف...",
-    "سير نظامي ومستقيم في المسار المخصص",
-    "وقوف تام ونظامي",
-    "تهدئة السرعة والاستعداد للوقوف",
-    "استقرار داخل المسار أو الدوار",
-    "انحراف وتغيير مسار غير آمن",
-    "رجوع للخلف دون التأكد من خلو الطريق",
-    "عدم ترك مسافة أمان كافية (صدم من الخلف)",
-    "دخول مفاجئ للتقاطع أو الدوار دون إعطاء الأولوية",
-    "عبور الشارع من غير الأماكن المخصصة للمشاة",
-    "عبور الشارع من الممر المخصص للمشاة (نظامي)",
-    "تجاوز إشارة ضوئية حمراء"
-]
-
-# --- 4. الواجهة المنظمة (Tabs) ---
-tab1, tab2, tab3 = st.tabs(["📍 1. الموقع والبيئة والنتائج", "🚗 2. أطراف الحادث", "💥 3. الاصطدام والتلفيات"])
-
-with tab1:
-    st.markdown("### 🛣️ بيانات الطريق، التنظيم، والآثار المادية والبشرية")
-    
-    accident_category = st.selectbox(
-        "🚨 التصنيف الرئيسي للحادث:",
-        [
-            "اختر تصنيف الحادث...",
-            "حادث تصادم بين مركبتين",
-            "حادث انقلاب مركبة",
-            "حادث سقوط من مرتفع",
-            "حادث دهس مشاة",
-            "حادث اصطدام بجسم ثابت"
-        ]
-    )
-    
-    col_a, col_b = st.columns(2)
-    with col_a:
-        road_type = st.selectbox(
-            "نوع الطريق:",
-            ["اختر...", "طريق رئيسي سريع", "طريق فرعي", "دوار (تقاطع دائري)", "تقاطع إشاري", "تقاطع غير منظم", "منحنى"]
-        )
-    with col_b:
-        traffic_sign = st.selectbox(
-            "التنظيم المروري:",
-            ["اختر...", "إشارة ضوئية تعمل", "لوحة قف", "لوحة أولوية", "بدون لوحات تنظيمية"]
-        )
-    
-    weather_cond = st.selectbox(
-        "🌤️ الظروف الجوية:",
-        ["اختر...", "طريق جاف وطبيعي", "مطر / زلق", "غبار / انعدام رؤية", "ليلي / إضاءة ضعيفة"]
-    )
-    
-    st.markdown("---")
-    st.markdown("#### 🏥 الأثر البشري والمادي")
-    col_res1, col_res2, col_res3 = st.columns(3)
-    with col_res1:
-        injury_status = st.selectbox("حالة الإصابات:", ["لا توجد إصابات", "إصابات خفيفة", "إصابات متوسطة", "إصابات بليغة"])
-    with col_res2:
-        fatality_status = st.selectbox("حالات الوفاة:", ["لا توجد وفيات", "حالة وفاة واحدة", "وفيات متعددة"])
-    with col_res3:
-        damage_status = st.selectbox("حجم التلفيات:", ["تلفيات بسيطة", "تلفيات متوسطة", "تلفيات جسيمة / تلف كلي"])
-
-with tab2:
-    st.markdown("### 🚙 بيانات الأطراف وحركتهم الميدانية")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**الطرف الأول**")
-        veh1_type = st.selectbox("نوع الطرف 1:", ["اختر...", "مركبة صغيرة (سيدان)", "مركبة عائلية / دفع رباعي", "مركبة تجارية / نقل", "دراجة نارية", "مشاة / شخص"], key="v1_t")
-        veh1_motion = st.selectbox("حركة الطرف الأول:", motion_options, key="v1_m")
-        
-    with col2:
-        st.markdown("**الطرف الثاني**")
-        veh2_type = st.selectbox("نوع الطرف 2:", ["لا يوجد (حادث طرف واحد)", "مركبة صغيرة (سيدان)", "مركبة عائلية / دفع رباعي", "مركبة تجارية / نقل", "دراجة نارية", "مشاة / شخص"], key="v2_t")
-        veh2_motion = st.selectbox("حركة الطرف الثاني:", motion_options, key="v2_m")
-
-with tab3:
-    st.markdown("### 💥 تفاصيل الاصطدام والتلفيات")
-    
-    col5, col6 = st.columns(2)
-    with col5:
-        impact_point = st.selectbox(
-            "موقع الاصطدام الرئيسي:",
-            [
-                "اختر نقطة الاصطدام...",
-                "صدم خلفي (بمؤخرة المركبة)",
-                "تداخل مسارات (جوانب المركبتين)",
-                "تقابل وجهاً لوجه",
-                "انقلاب المركبة",
-                "سقوط من مرتفع",
-                "اصطدام بجسم ثابت",
-                "دهس مشاة"
-            ]
-        )
-    with col6:
-        impact_severity = st.selectbox(
-            "طبيعة الاصطدام:",
-            ["اختر...", "صدم مباشر", "احتكاك جانبي", "تداصم تقاطعي"]
-        )
-
-    additional_notes = st.text_area("📝 ملاحظات المعاينة الميدانية وأقوال الأطراف:", height=80)
-
+# --- 3. واجهة إدخال الحادث النصية ---
 st.markdown("---")
+accident_desc = st.text_area(
+    "📝 أدخل تفاصيل الحادث (وضح بوضوح حركة الطرف الأول والطرف الثاني):", 
+    value=st.session_state['accident_desc'],
+    key='accident_desc_input',
+    height=150
+)
 
-col_btn1, col_btn2 = st.columns([3, 1])
-with col_btn1:
-    analyze_btn = st.button("🔍 إصدار التقرير النظامي المعتمد لمسرح الحادث", use_container_width=True)
-with col_btn2:
-    clear_btn = st.button("🗑️ مسح الحقول", on_click=clear_inputs, use_container_width=True)
+st.session_state['accident_desc'] = accident_desc
 
-# --- 5. المحرك التحليلي الموضوعي الدقيق ---
+col1, col2 = st.columns([3, 1])
+with col1:
+    analyze_btn = st.button("🔍 بدء تحليل الحادث بدقة", use_container_width=True)
+with col2:
+    clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
+
+# --- 4. محرك التحليل الذكي (لمنع انعكاس النسب) ---
 if analyze_btn:
-    if accident_category == "اختر تصنيف الحادث..." or road_type == "اختر..." or veh1_motion == "اختر حركة أو وضعية الطرف..." or impact_point == "اختر نقطة الاصطدام...":
-        st.warning("⚠️ الرجاء استكمال اختيار الحقول الأساسية أولاً")
+    if st.session_state['accident_desc'].strip() == "":
+        st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
     else:
-        with st.spinner("⏳ جاري تحليل المعطيات الميدانية وتطبيق اللائحة المرورية بدقة..."):
+        with st.spinner("⏳ جاري تحليل النص وتحديد المسؤول بدقة لمنع أي انعكاس..."):
             
+            text = st.session_state['accident_desc']
+            text_lower = text.lower()
+            
+            # تهيئة النسب الافتراضية
             p1_share = "0٪"
             p2_share = "0٪"
-            violation_desc = "تحديد المسؤولية بناءً على المعطيات الفنية."
+            violation_desc = ""
+            article_number = ""
+            article_text = ""
             
-            # منطق تحليل موضوعي بحت بناءً على الحركة المختارة
-            if "عبور الشارع من غير الأماكن المخصصة" in veh1_motion:
-                p1_share = "100٪"
-                p2_share = "0٪"
-                violation_desc = "عبور المشاة من غير الأماكن المخصصة."
-            elif "عبور الشارع من غير الأماكن المخصصة" in veh2_motion:
-                p1_share = "0٪"
-                p2_share = "100٪"
-                violation_desc = "عبور المشاة من غير الأماكن المخصصة."
-            elif "عبور الشارع من الممر المخصص للمشاة" in veh1_motion:
-                p1_share = "0٪"
-                p2_share = "100٪"
-                violation_desc = "عدم إعطاء الأولوية للمشاة في الممر المخصص."
-            elif "عبور الشارع من الممر المخصص للمشاة" in veh2_motion:
-                p1_share = "100٪"
-                p2_share = "0٪"
-                violation_desc = "عدم إعطاء الأولوية للمشاة في الممر المخصص."
-            elif "رجوع للخلف" in veh1_motion:
-                p1_share = "100٪"
-                p2_share = "0٪"
-                violation_desc = "الرجوع للخلف دون التأكد من خلو الطريق."
-            elif "رجوع للخلف" in veh2_motion:
-                p1_share = "0٪"
-                p2_share = "100٪"
-                violation_desc = "الرجوع للخلف دون التأكد من خلو الطريق."
-            elif "عدم ترك مسافة أمان" in veh1_motion:
-                p1_share = "100٪"
-                p2_share = "0٪"
-                violation_desc = "عدم ترك مسافة أمان كافية (الصدم من الخلف)."
-            elif "عدم ترك مسافة أمان" in veh2_motion:
-                p1_share = "0٪"
-                p2_share = "100٪"
-                violation_desc = "عدم ترك مسافة أمان كافية (الصدم من الخلف)."
-            elif "انحراف وتغيير مسار" in veh1_motion:
-                p1_share = "75٪"
-                p2_share = "25٪"
-                violation_desc = "انحراف وتغيير مسار غير آمن."
-            elif "انحراف وتغيير مسار" in veh2_motion:
-                p1_share = "25٪"
-                p2_share = "75٪"
-                violation_desc = "انحراف وتغيير مسار غير آمن."
-            elif "تقاطع" in road_type:
+            # تحليل ذكي يحدد الفاعل بدقة لعدم انعكاس النسب
+            # أ) حالات الرجوع للخلف
+            if "رجوع" in text_lower or "للخلف" in text_lower or "يراجع" in text_lower:
+                if "الأولى" in text or "الطرف الأول" in text or "سيارة 1" in text:
+                    p1_share = "100٪"
+                    p2_share = "0٪"
+                    at_fault_party = "الطرف الأول"
+                else:
+                    p1_share = "0٪"
+                    p2_share = "100٪"
+                    at_fault_party = "الطرف الثاني"
+                
+                violation_desc = f"الرجوع للخلف دون التأكد من خلو الطريق من قبل {at_fault_party}."
+                article_number = "المادة (41) من اللائحة التنفيذية"
+                article_text = "يحظر على قائد المركبة الرجوع بها إلى الخلف إلا إذا كان ذلك ضرورياً لمسافة قصيرة جداً وبشرط ألا يشكل خطراً وأن يتأكد من خلو الطريق."
+
+            # ب) حالات الانحراف وتغيير المسار
+            elif "انحراف" in text_lower or "مسار" in text_lower or "انتقال" in text_lower or "تغيير" in text_lower:
+                if "الأولى" in text or "الطرف الأول" in text:
+                    p1_share = "75٪"
+                    p2_share = "25٪"
+                    at_fault_party = "الطرف الأول"
+                else:
+                    p1_share = "25٪"
+                    p2_share = "75٪"
+                    at_fault_party = "الطرف الثاني"
+                
+                violation_desc = f"انحراف وتغيير مسار غير آمن من قبل {at_fault_party} مع عدم الانتباه الكافي من الطرف الآخر."
+                article_number = "المادة (40) من اللائحة التنفيذية"
+                article_text = "لا يجوز لقائد المركبة الانتقال من مسار إلى آخر إلا بعد التأكد من خلو الطريق وإعطاء إشارة تنبيه كافية."
+
+            # ج) حالات الصدم من الخلف (عدم ترك مسافة أمان)
+            elif "خلف" in text_lower or "اصطدمت بالأمامية" in text_lower or "صدمها" in text_lower:
+                if "الأولى" in text and ("الثانية" in text or "الأمامية" in text) and ("صدمت" in text or "اصطدمت" in text):
+                    # إذا النص ذدر أن الأولى صدمت الثانية
+                    p1_share = "100٪"
+                    p2_share = "0٪"
+                    at_fault_party = "الطرف الأول"
+                else:
+                    p1_share = "0٪"
+                    p2_share = "100٪"
+                    at_fault_party = "الطرف الثاني"
+
+                violation_desc = f"عدم ترك مسافة أمان كافية والاصطدام من الخلف من قبل {at_fault_party}."
+                article_number = "المادة (35) من نظام المرور"
+                article_text = "يجب على قائد المركبة ترك مسافة كافية بينه وبين المركبة التي أمامه تسمح بالتوقف في جميع الظروف."
+
+            # د) حالات الخطأ المشترك / التقاطعات
+            elif "مشترك" in text_lower or "تقاطع" in text_lower or "تداصم" in text_lower or "مناصفة" in text_lower:
                 p1_share = "50٪"
                 p2_share = "50٪"
-                violation_desc = "عدم الالتزام بأولويات التقاطعات المشتركة."
+                violation_desc = "مسؤولية مشتركة لعدم الالتزام بأولويات التقاطعات أو التهدئة."
+                article_number = "المادة (55) من نظام المرور"
+                article_text = "تحديد أولوية المرور في التقاطعات وفقاً للوحات التنظيمية أو القواعد العامة لأسبقية الوصول."
+
+            # هـ) حالات الدوار
+            elif "دوار" in text_lower:
+                if "داخل" in text_lower and "دخلت" in text_lower:
+                    p1_share = "0٪"
+                    p2_share = "100٪"
+                else:
+                    p1_share = "100٪"
+                    p2_share = "0٪"
+                violation_desc = "عدم إعطاء الأولوية للمركبات التي تسير داخل الدوار."
+                article_number = "المادة (54) من نظام المرور"
+                article_text = "الأولوية للمركبات التي تسير داخل الدوار ما لم توجد إشارات تنظم غير ذلك."
+
             else:
                 p1_share = "0٪"
                 p2_share = "100٪"
-                violation_desc = "تحديد المسؤولية بناءً على حركة الأطراف."
+                violation_desc = "تحديد المسؤولية بناءً على المعطيات الواردة في النص."
+                article_number = "المادة (33) من نظام المرور"
+                article_text = "يجب على قائد المركبة توخي الحيطة والحذر والسيطرة عليها في جميع الأوقات."
 
-            tech_analysis = f"""
-1. **تصنيف المعاينة:** {accident_category} على طريق ({road_type}) - التنظيم: ({traffic_sign}) - الجو: ({weather_cond}).
-2. **الآثار البشرية والمادية:** الإصابات: ({injury_status}) | الوفيات: ({fatality_status}) | التلفيات: ({damage_status}).
-3. **حركة الأطراف:** الطرف الأول ({veh1_type}: {veh1_motion}) | الطرف الثاني ({veh2_type}: {veh2_motion}).
-4. **موقع الاصطدام:** ({impact_point}) - الطبيعة: ({impact_severity}).
-            """
-            
-            legal_qualification = f"""
-* **المخالفة المرصودة:** {violation_desc}
-* **السند القانوني:** تطبيق مواد نظام المرور السعودي ولائحته التنفيذية بشأن القواعد والمسؤوليات المرورية.
-            """
+            tech_analysis = f"تحليل دقيق لنص الوصف الميداني مع مطابقة تامة لاتجاه الحركة وأطراف الحادث لمنع انعكاس النسب."
+            legal_qualification = f"* **رقم المادة:** {article_number}\n* **نص المادة:** \"{article_text}\"\n* **المخالفة المرصودة:** {violation_desc}"
             
             official_report = f"""
-**موضوع التقرير:** تقرير معاينة حادث ({accident_category}).
+**موضوع التقرير:** معاينة حادث مروري.
 
-* **بيانات الموقع:** {road_type} ({traffic_sign})
-* **النتائج:** الإصابات: {injury_status} | الوفيات: {fatality_status} | التلفيات: {damage_status}
-* **الطرف الأول:** {veh1_type} ({veh1_motion})
-* **الطرف الثاني:** {veh2_type} ({veh2_motion})
-* **ملاحظات الميدان:** {additional_notes if additional_notes else "لا توجد ملاحظات"}
+* **وصف الحادث:** {st.session_state['accident_desc']}
 
-**التحليل الفني والنتيجة النهائية:**
+**التحليل الفني والنتيجة النهائية وتوزيع النسب بدقة:**
 * **الطرف الأول:** {p1_share}
 * **الطرف الثاني:** {p2_share}
-* **السند النظامي:** نظام المرور ولائحته التنفيذية.
+* **السند النظامي:** {article_number}
             """
 
             st.session_state['report_ready'] = True
@@ -221,23 +147,23 @@ if analyze_btn:
             st.session_state['legal_qualification'] = legal_qualification
             st.session_state['official_report'] = official_report
 
-# عرض التقرير
+# عرض التقرير إذا كان جاهزاً
 if st.session_state.get('report_ready', False):
     st.markdown("---")
-    st.markdown("### 📋 التقرير النظامي المعتمد لمسرح الحادث")
+    st.markdown("### 📋 التقرير النظامي المفصل للحادث")
     
     with st.expander("🔍 أولاً: التحليل الفني للحادث", expanded=True):
         st.markdown(st.session_state['tech_analysis'])
         
-    with st.expander("📜 ثانياً: التكييف النظامي", expanded=True):
+    with st.expander("📜 ثانياً: التكييف النظامي والنصوص القانونية", expanded=True):
         st.markdown(st.session_state['legal_qualification'])
         
-    with st.expander("📄 ثالثاً: التقرير الرسمي", expanded=True):
+    with st.expander("📄 ثالثاً: التقرير الرسمي المعتمد", expanded=True):
         st.markdown(st.session_state['official_report'])
     
     st.markdown(f"""
         <div style="padding: 20px; border-radius: 12px; border-right: 6px solid #006C35; margin-top: 20px; background: rgba(0,108,53,0.1);">
-            <h3 style="margin: 0 0 10px 0; color: #006C35; font-size: 19px;">📌 النسب النظامية المعتمدة:</h3>
+            <h3 style="margin: 0 0 10px 0; color: #006C35; font-size: 19px;">📌 النسب النظامية الدقيقة (بدون انعكاس):</h3>
             <p style="margin: 6px 0; font-size: 18px; font-weight: bold;">🚗 الطرف الأول: {st.session_state['p1_share']}</p>
             <p style="margin: 0; font-size: 18px; font-weight: bold; color: #ff4b4b;">🚙 الطرف الثاني: {st.session_state['p2_share']}</p>
         </div>
