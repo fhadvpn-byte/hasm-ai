@@ -1,21 +1,16 @@
 import streamlit as st
-import google.generativeai as genai
 import PyPDF2
 import os
+import requests
+import json
 
 # --- 1. إعداد واجهة البرنامج ---
 st.set_page_config(page_title="برنامج حَسْم - تحليل الحوادث", page_icon="🚓", layout="centered")
 st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
-# --- 2. إعداد الذكاء الاصطناعي ---
-# سنستخدم الطريقة الآمنة لقراءة المفتاح من إعدادات المنصة
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-except:
-    API_KEY = "AQ.Ab8RN6LLWlu9ULEhJqJFdjSR6rt4HgOzfMAyUB2IS43XwIBtVA"
-
-genai.configure(api_key=API_KEY)
+# --- 2. إعداد المفتاح المباشر ---
+API_KEY = "AQ.Ab8RN6LLWlu9ULEhJqJFdjSR6rt4HgOzfMAyUB2IS43XwIBtVA"
 
 # قراءة الملف بطريقة مضمونة ومباشرة
 @st.cache_data
@@ -25,12 +20,15 @@ def load_traffic_law():
         try:
             with open(pdf_path, "rb") as file:
                 reader = PyPDF2.PdfReader(file)
-                return len(reader.pages)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() or ""
+                return len(reader.pages), text
         except:
-            return 0
-    return 0
+            return 0, ""
+    return 0, ""
 
-pages_count = load_traffic_law()
+pages_count, pdf_text = load_traffic_law()
 
 if pages_count > 0:
     st.success(f"تم ربط النظام بنجاح (تم قراءة {pages_count} صفحة من نظام المرور)")
@@ -47,10 +45,27 @@ if st.button("🔍 بدء تحليل الحادث"):
     else:
         with st.spinner("⏳ جاري تحليل الحادث وإصدار التقرير..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # استخدام الاتصال المباشر عبر HTTP لضمان قبول التوكن وتجنب خطأ 401
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+                headers = {'Content-Type': 'application/json'}
+                
                 prompt = f"بناءً على نظام المرور السعودي، قم بتحليل هذا الحادث بدقة وتحديد نسبة الخطأ والمادة النظامية:\n\nتفاصيل الحادث: {accident_desc}"
-                response = model.generate_content(prompt)
-                st.markdown("### 📋 التقرير النظامي للحادث:")
-                st.info(response.text)
+                
+                data = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }]
+                }
+                
+                response = requests.post(url, headers=headers, data=json.dumps(data))
+                
+                if response.status_code == 200:
+                    res_json = response.json()
+                    output_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                    st.markdown("### 📋 التقرير النظامي للحادث:")
+                    st.info(output_text)
+                else:
+                    st.error(f"خطأ من الخادم ({response.status_code}): {response.text}")
+                    
             except Exception as e:
-                st.error(f"حدث خطأ في الاتصال أو المفتاح: {e}")
+                st.error(f"حدث خطأ في الاتصال: {e}")
