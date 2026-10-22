@@ -15,14 +15,26 @@ try:
 except:
     API_KEY = ""
 
-# --- 3. قراءة نصوص نظام المرور من ملف الـ PDF بالكامل ---
+# --- 3. قراءة نصوص نظام المرور من ملف الـ PDF بدقة ---
 @st.cache_data
 def load_traffic_law():
-    pdf_path = "traffic.pdf"
-    if not os.path.exists(pdf_path):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        pdf_path = os.path.join(base_dir, "traffic.pdf")
-        
+    # البحث المباشر في نفس مجلد المستودع
+    for filename in ["traffic.pdf", "Traffic.pdf", "TRAFFIC.PDF"]:
+        if os.path.exists(filename):
+            try:
+                with open(filename, "rb") as file:
+                    reader = PyPDF2.PdfReader(file)
+                    pages_text = []
+                    for idx, page in enumerate(reader.pages):
+                        txt = page.extract_text() or ""
+                        pages_text.append(f"[صفحة {idx+1}]\n{txt}")
+                    return len(reader.pages), pages_text
+            except Exception as e:
+                continue
+                
+    # محاولة إضافية عبر المسار النسبي المطلق
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    pdf_path = os.path.join(base_dir, "traffic.pdf")
     if os.path.exists(pdf_path):
         try:
             with open(pdf_path, "rb") as file:
@@ -32,18 +44,19 @@ def load_traffic_law():
                     txt = page.extract_text() or ""
                     pages_text.append(f"[صفحة {idx+1}]\n{txt}")
                 return len(reader.pages), pages_text
-        except Exception as e:
-            return 0, []
+        except:
+            pass
+            
     return 0, []
 
 pages_count, law_pages = load_traffic_law()
 
 if pages_count > 0:
-    st.success(f"✅ تم ربط النظام بنجاح (تم قراءة {pages_count} صفحة من نظام المرور السعودي)")
+    st.success(f"✅ تم قراءة ملف النظام بنجاح ({pages_count} صفحة جاهزة للتحليل)")
 else:
-    st.error("❌ لم يتم قراءة ملف traffic.pdf، تأكد من رفعه في GitHub بجانب ملف main.py")
+    st.error("❌ ملف traffic.pdf موجود ولكن حدث خطأ في قراءة محتواه، تأكد من أن الملف سليم غير تالف.")
 
-# دالة لاستخراج أهم الصفحات والمواد المرتبطة بالحادث من الـ 115 صفحة
+# دالة لاستخراج أهم الصفحات والمواد المرتبطة بالحادث
 def get_relevant_law_text(accident_desc, pages):
     if not pages:
         return ""
@@ -72,8 +85,10 @@ accident_desc = st.text_area("📝 أدخل تفاصيل الحادث (المر�
 if st.button("🔍 بدء تحليل الحادث"):
     if accident_desc.strip() == "":
         st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
+    elif not API_KEY:
+        st.error("⚠️ مفتاح Groq غير موجود في إعدادات Secrets في Streamlit.")
     else:
-        with st.spinner("⏳ جاري فحص مواد نظام المرور من ملف الـ PDF وتحليل الحادث..."):
+        with st.spinner("⏳ جاري فحص مواد نظام المرور من ملف الـ PDF وتحليل الحادث بالذكاء الاصطناعي..."):
             relevant_law = get_relevant_law_text(accident_desc, law_pages)
             
             prompt = f"""أنت خبير مروري وقانوني مختص في نظام المرور السعودي ولائحته التنفيذية.
