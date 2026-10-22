@@ -9,7 +9,7 @@ st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
 # --- 2. إعداد الذكاء الاصطناعي ---
-API_KEY = "AQ.Ab8RN6Ijy1n4swLkb-ZFcaAER9CLz-5vxLE8oooI-gWHlie0LQ"
+API_KEY = "AQ.Ab8RN6JYvT-eC4PXmkiTszM2CX9fUD91h1iLTJ5b2Buh2v2yXw"
 genai.configure(api_key=API_KEY)
 
 # قراءة الملف بطريقة مضمونة ومباشرة
