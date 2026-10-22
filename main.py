@@ -9,21 +9,7 @@ st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
 # --- 2. إعداد الذكاء الاصطناعي بالمفتاح الصحيح الذي يبدأ بـ AIza ---
-API_KEY = "curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent" \
-  -H 'Content-Type: application/json' \
-  -H 'X-goog-api-key: AQ.Ab8RN6Lk0KZkpUYHwgAG74Jo2b5YQ5LomC401INizJxBV983nQ' \
-  -X POST \
-  -d '{
-    "contents": [
-      {
-        "parts": [
-          {
-            "text": "Explain how AI works in a few words"
-          }
-        ]
-      }
-    ]
-  }'"  # الصق مفتاحك الصحيح هنا بين علامتي التنصيص
+API_KEY = "AQ.Ab8RN6Lk0KZkpUYHwgAG74Jo2b5YQ5LomC401INizJxBV983nQ"  # الصق مفتاحك الصحيح هنا بين علامتي التنصيص
 genai.configure(api_key=API_KEY)
 
 # قراءة الملف بطريقة مضمونة ومباشرة
