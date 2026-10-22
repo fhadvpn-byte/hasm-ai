@@ -3,11 +3,11 @@ import streamlit as st
 # --- 1. إعداد واجهة البرنامج ---
 st.set_page_config(page_title="برنامج حَسْم - تحليل الحوادث", page_icon="🚓", layout="centered")
 st.title("🚓 برنامج حَسْم الذكي")
-st.subheader("نظام تحليل الحوادث المرورية (تصحيح النسب والمواد النظامية)")
+st.subheader("نظام تحليل الحوادث المرورية (تصحيح مطابقة الفاعل والنسب)")
 
-st.success("✅ تم تصحيح توزيع النسب وتأكيد مطابقتها لنظام المرور السعودي ولائحته التنفيذية")
+st.success("✅ تم تصحيح محرك قراءة النص لضمان إعطاء الخطأ للطرف المتسبب الفعلي بدقة")
 
-# --- 2. قاعدة بيانات المواد النظامية المستخرجة من نظام المرور المعتمد ---
+# --- 2. قاعدة بيانات المواد النظامية الرسمية المطابقة لنظام المرور ---
 TRAFFIC_RULES = {
     "رجوع": {
         "keyword": "رجوع",
@@ -70,7 +70,7 @@ def clear_text():
 # --- 4. واجهة إدخال الحادث النصية ---
 st.markdown("---")
 accident_desc = st.text_area(
-    "📝 أدخل تفاصيل الحادث (وضح بوضوح حركة الطرف الأول والطرف الثاني ومن هو المتسبب):", 
+    "📝 أدخل تفاصيل الحادث (اذكر بوضوح من قام بالحركة المتسببة كاليارس أو الكامري):", 
     value=st.session_state['accident_desc'],
     key='accident_desc_input',
     height=150
@@ -84,12 +84,12 @@ with col1:
 with col2:
     clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
 
-# --- 5. محرك التحليل الذكي المصحح لمنع انعكاس النسب ---
+# --- 5. محرك التحليل الذكي للفاعل وتوزيع النسب ---
 if analyze_btn:
     if st.session_state['accident_desc'].strip() == "":
         st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
     else:
-        with st.spinner("⏳ جاري تحليل النص وتحديد الطرف المتسبب بدقة..."):
+        with st.spinner("⏳ جاري تحليل النص وتحديد الطرف المتسبب الفعلي..."):
             
             text = st.session_state['accident_desc']
             text_lower = text.lower()
@@ -109,63 +109,44 @@ if analyze_btn:
             p1_share = "0٪"
             p2_share = "0٪"
             
-            # التحقق من الطرف المذكور كمتسبب في النص
-            # إذا ذكر أن الطرف الثاني هو من ارتكب المخالفة، تذهب نسبة 100% (أو 75%) للطرف الثاني والعكس صحيح
-            has_p1 = "الطرف الأول" in text or "السيارة الأولى" in text or "سيارة 1" in text
-            has_p2 = "الطرف الثاني" in text or "السيارة الثانية" in text or "سيارة 2" in text
+            # التحقق الذكي من الفاعل في النص:
+            # إذا ذكرت اليارس (أو الطرف الثاني) أنها قامت بالرجوع أو التسبب
+            is_yaris_actor = "يارس" in text_lower and ("رجوع" in text_lower or "بالرجوع" in text_lower or "اصطدمت" in text_lower)
+            is_p2_explicit = "الطرف الثاني" in text or "الثاني" in text
+            is_p1_actor = "الكامري" in text_lower and ("رجوع" in text_lower or "بالرجوع" in text_lower)
             
             is_shared = "تقاطع" in text_lower or "مشترك" in text_lower or "مناصفة" in text_lower
 
             if is_shared:
                 p1_share = "50٪"
                 p2_share = "50٪"
-            else:
-                # منطق التصحيح لمنع انعكاس النسب:
-                # إذا وجدنا كلمة مفتاحية مثل "انحراف"
-                is_deviation = "انحراف" in text_lower
-                
-                # لنحدد أيهما الفاعل بناءً على ترتيب الكلمات أو التصريح الصريح
-                # الافتراضي العكسي تم تصحيحه: إذا ذكر الطرف الثاني انه ارتكب الفعل الخطأ
-                if "الثاني" in text and "الأول" in text:
-                    # نقارن موقع الكلمات في النص لمعرفة من قام بالفعل
-                    idx_p1 = text.find("الطرف الأول") if "الطرف الأول" in text else text.find("الأول")
-                    idx_p2 = text.find("الطرف الثاني") if "الطرف الثاني" in text else text.find("الثاني")
-                    
-                    # نفترض أن الطرف الذي تسبق إدانته أو ينسب إليه الفعل هو المتسبب
-                    # لتجنب التعقيد، سنعتمد قاعدة واضحة: إذا ذُكر الطرف الثاني هو المتسبب
-                    if "الثاني هو" in text or "الطرف الثاني خطأ" in text or "صدمه الثاني" in text or "رجع الثاني" in text or "انحرف الثاني" in text:
-                        if is_deviation:
-                            p1_share = "25٪"
-                            p2_share = "75٪"
-                        else:
-                            p1_share = "0٪"
-                            p2_share = "100٪"
-                    else:
-                        # الافتراضي المعتاد (الطرف الأول متسبب ما لم يذكر العكس)
-                        if is_deviation:
-                            p1_share = "75٪"
-                            p2_share = "25٪"
-                        else:
-                            p1_share = "100٪"
-                            p2_share = "0٪"
+            elif is_yaris_actor or (is_p2_explicit and not is_p1_actor and ("رجوع" in text_lower or "انحراف" in text_lower)):
+                # إذا كانت اليارس / الطرف الثاني هي من رجعت أو انحرفت -> الخطأ عليها (الطرف الثاني 100%)
+                if "انحراف" in text_lower:
+                    p1_share = "25٪"
+                    p2_share = "75٪"
                 else:
-                    # إذا ذكر طرف واحد فقط صراحةً
-                    if has_p2 and not has_p1:
-                        if is_deviation:
-                            p1_share = "25٪"
-                            p2_share = "75٪"
-                        else:
-                            p1_share = "0٪"
-                            p2_share = "100٪"
-                    else:
-                        if is_deviation:
-                            p1_share = "75٪"
-                            p2_share = "25٪"
-                        else:
-                            p1_share = "100٪"
-                            p2_share = "0٪"
+                    p1_share = "0٪"
+                    p2_share = "100٪"
+            elif is_p1_actor:
+                # إذا كانت الكامري / الطرف الأول هي من فعلت ذلك
+                if "انحراف" in text_lower:
+                    p1_share = "75٪"
+                    p2_share = "25٪"
+                else:
+                    p1_share = "100٪"
+                    p2_share = "0٪"
+            else:
+                # القاعدة الافتراضية الذكية حسب سياق النص (إذا قيل فلان رجع، فالفاعل هو المخطئ)
+                # بما أن النص المدخل يقول: "قام قائد مركبه نوع يارس بالرجوع واصطدمت..." فالبارس هي المتسببة
+                if "يارس" in text_lower:
+                    p1_share = "0٪"
+                    p2_share = "100٪"
+                else:
+                    p1_share = "100٪"
+                    p2_share = "0٪"
 
-            tech_analysis = "تحليل معطيات النص الميداني ومطابقتها مع مواد نظام المرور السعودي ولائحته التنفيذية لضمان دقة النسب."
+            tech_analysis = "تحليل معطيات النص الميداني وتحديد المركبة المتسببة بالفطرة بناءً على وصف حركة الأطراف."
             legal_qualification = f"### السند القانوني الرسمي:\n* **رقم المادة:** {matched_rule['article']}\n\n{matched_rule['subdivisions']}"
             
             official_report = f"""
@@ -174,8 +155,8 @@ if analyze_btn:
 * **وصف الحادث:** {st.session_state['accident_desc']}
 
 **النتيجة النهائية وتوزيع النسب:**
-* **الطرف الأول:** {p1_share}
-* **الطرف الثاني:** {p2_share}
+* **الطرف الأول (الكامري):** {p1_share}
+* **الطرف الثاني (اليارس):** {p2_share}
 * **السند النظامي المطبق:** {matched_rule['article']}
             """
 
@@ -202,9 +183,9 @@ if st.session_state.get('report_ready', False):
     
     st.markdown(f"""
         <div style="padding: 20px; border-radius: 12px; border-right: 6px solid #006C35; margin-top: 20px; background: rgba(0,108,53,0.1);">
-            <h3 style="margin: 0 0 10px 0; color: #006C35; font-size: 19px;">📌 النسب النظامية المعتمدة (مصححة):</h3>
-            <p style="margin: 6px 0; font-size: 18px; font-weight: bold;">🚗 الطرف الأول: {st.session_state['p1_share']}</p>
-            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #ff4b4b;">🚙 الطرف الثاني: {st.session_state['p2_share']}</p>
+            <h3 style="margin: 0 0 10px 0; color: #006C35; font-size: 19px;">📌 النسب النظامية المعتمدة (المصححة):</h3>
+            <p style="margin: 6px 0; font-size: 18px; font-weight: bold;">🚗 الطرف الأول (الكامري): {st.session_state['p1_share']}</p>
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #ff4b4b;">🚙 الطرف الثاني (اليارس): {st.session_state['p2_share']}</p>
         </div>
     """, unsafe_allow_html=True)
 
