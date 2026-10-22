@@ -29,7 +29,7 @@ motion_options = [
     "الرجوع للخلف دون تأكد من خلو الطريق (متسبب)",
     "الصدم من الخلف لعدم ترك مسافة أمان (متسبب)",
     "دخول مفاجئ للدوار أو تقاطع (متسبب)",
-    "عبور الشارع من غير الأماكن المخصصة (مشاة - مخالفة عبور)",
+    "عبور الشارع من غير الأماكن المخصصة (مشاة - خطأ على المشاة)",
     "عبور الشارع من الممر المخصص للمشاة (مشاة - نظامي)",
     "السير على الطريق بطريقة مخالفة (مشاة)"
 ]
@@ -126,27 +126,58 @@ if analyze_btn:
     if accident_category == "اختر تصنيف الحادث..." or road_type == "اختر..." or veh1_motion == "اختر الحركة..." or impact_point == "اختر نقطة الاصطدام...":
         st.warning("⚠️ الرجاء استكمال اختيار الحقول الأساسية في التبويبات الثلاثة أولاً")
     else:
-        with st.spinner("⏳ جاري معالجة المعطيات الميدانية واستخراج النسب النظامية الرسمية..."):
+        with st.spinner("⏳ جاري معالجة المعطيات الميدانية وتحديد النسب النظامية الرسمية..."):
             
-            # تحديد النسب الرسمية المعتمدة (مجموعها 100%)
-            if "عبور الشارع من غير الأماكن المخصصة" in veh1_motion or "عبور الشارع من غير الأماكن المخصصة" in veh2_motion:
-                error_percentage = "100% على المشاة (بسبب عبور الشارع من غير الأماكن المخصصة وعدم إعطاء الأولوية للسيارات)"
-            elif "عبور الشارع من الممر المخصص للمشاة" in veh1_motion or "عبور الشارع من الممر المخصص للمشاة" in veh2_motion:
-                error_percentage = "100% على قائد المركبة (لعدم إعطاء الأولوية للمشاة في الممر المخصص)"
-            elif "الرجوع للخلف" in veh2_motion or "الرجوع للخلف" in veh1_motion:
-                error_percentage = "100% على المركبة التي قامت بالرجوع للخلف / 0% على المركبة الأخرى"
-            elif "انحراف وتغيير مسار" in veh2_motion or "انحراف وتغيير مسار" in veh1_motion:
-                error_percentage = "75% على المركبة المتسببة بالانحراف و 25% على المركبة المتضررة (مسؤولية مشتركة نظامية)"
-            elif "الصدم من الخلف" in veh2_motion or "الصدم من الخلف" in veh1_motion:
-                error_percentage = "100% على المركبة اللاحقة (بسبب عدم ترك مسافة أمان) / 0% على المركبة الأمامية"
-            elif "دخول مفاجئ للدوار" in veh2_motion or "دخول مفاجئ للدوار" in veh1_motion:
-                error_percentage = "100% على المركبة الداخلة للدوار (عدم إعطاء الأولوية لمن بداخل الدوار)"
+            # تحديد النسب الرقمية المستقلة لكل طرف بدقة
+            p1_share = "0%"
+            p2_share = "0%"
+            
+            if "عبور الشارع من غير الأמהكن المخصصة" in veh1_motion or "عبور الشارع من غير الأماكن المخصصة" in veh2_motion:
+                if "عبور الشارع من غير الأماكن المخصصة" in veh1_motion:
+                    p1_share = "100% (خطأ على المشاة للعبور الخاطئ)"
+                    p2_share = "0%"
+                else:
+                    p1_share = "0%"
+                    p2_share = "100% (خطأ على المشاة للعبور الخاطئ)"
+            elif "عبور الشارع من الممر المخصص للمشاة" in veh1_motion:
+                p1_share = "0%"
+                p2_share = "100% (على قائد المركبة لعدم إعطاء الأولوية)"
+            elif "عبور الشارع من الممر المخصص للمشاة" in veh2_motion:
+                p1_share = "100% (على قائد المركبة لعدم إعطاء الأولوية)"
+                p2_share = "0%"
+            elif "الرجوع للخلف" in veh2_motion:
+                p1_share = "0%"
+                p2_share = "100% (على المركبة المرتجعة للخلف)"
+            elif "الرجوع للخلف" in veh1_motion:
+                p1_share = "100% (على المركبة المرتجعة للخلف)"
+                p2_share = "0%"
+            elif "انحراف وتغيير مسار" in veh2_motion:
+                p1_share = "25%"
+                p2_share = "75% (المتسبب بالانحراف)"
+            elif "انحراف وتغيير مسار" in veh1_motion:
+                p1_share = "75% (المتسبب بالانحراف)"
+                p2_share = "25%"
+            elif "الصدم من الخلف" in veh2_motion:
+                p1_share = "0%"
+                p2_share = "100% (المركبة اللاحقة - عدم ترك مسافة أمان)"
+            elif "الصدم من الخلف" in veh1_motion:
+                p1_share = "100% (المركبة اللاحقة - عدم ترك مسافة أمان)"
+                p2_share = "0%"
+            elif "دخول مفاجئ للدوار" in veh2_motion:
+                p1_share = "0%"
+                p2_share = "100% (الدخول الخاطئ للدوار)"
+            elif "دخول مفاجئ للدوار" in veh1_motion:
+                p1_share = "100% (الدخول الخاطئ للدوار)"
+                p2_share = "0%"
             elif "تقاطع" in road_type:
-                error_percentage = "50% على المركبة الأولى و 50% على المركبة الثانية (مسؤولية مشتركة مناصفة)"
+                p1_share = "50%"
+                p2_share = "50%"
             elif "انقلاب" in accident_category:
-                error_percentage = "100% على قائد المركبة المنقلبة (لعدم السيطرة أو السرعة)"
+                p1_share = "100% (على المركبة المنقلبة)"
+                p2_share = "0%"
             else:
-                error_percentage = "100% على الطرف المتسبب في الحادث / 0% على الطرف المتضرر"
+                p1_share = "0%"
+                p2_share = "100% (على الطرف المتسبب)"
 
             tech_analysis = f"""
 1. **تصنيف المعاينة:** {accident_category} على طريق ({road_type})، التنظيم ({traffic_sign})، حالة الطقس ({weather_cond}).
@@ -170,13 +201,15 @@ if analyze_btn:
 
 **التحليل الفني والقانوني:** بناءً على المعطيات الفعلية لمسرح الحادث وتتبع حركة الأطراف، ثبت وقوع الاصطدام والأضرار المذكورة نتيجة المخالفة المرصودة وفقاً للائحة المرورية.
 
-**النتيجة النهائية:**
-* **نسبة الخطأ والمسؤولية المعتمدة:** {error_percentage}
+**النتيجة النهائية وتوزيع نسب الخطأ:**
+* **الطرف الأول:** {p1_share}
+* **الطرف الثاني:** {p2_share}
 * **السند النظامي:** نظام المرور السعودي ولائحته التنفيذية.
             """
 
             st.session_state['report_ready'] = True
-            st.session_state['error_percentage'] = error_percentage
+            st.session_state['p1_share'] = p1_share
+            st.session_state['p2_share'] = p2_share
             st.session_state['tech_analysis'] = tech_analysis
             st.session_state['legal_qualification'] = legal_qualification
             st.session_state['official_report'] = official_report
@@ -197,8 +230,9 @@ if st.session_state.get('report_ready', False):
     
     st.markdown(f"""
         <div style="background-color: #f0f2f6; padding: 15px; border-radius: 8px; border-right: 5px solid #ff4b4b; margin-top: 15px;">
-            <h3 style="margin: 0; color: #1e3c72; font-size: 18px;">📌 نسبة الخطأ المعتمدة في النظام:</h3>
-            <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #ff4b4b;">{st.session_state['error_percentage']}</p>
+            <h3 style="margin: 0; color: #1e3c72; font-size: 18px;">📌 نسبة الخطأ المستقلة المعتمدة في النظام:</h3>
+            <p style="margin: 8px 0 4px 0; font-size: 16px; font-weight: bold; color: #1e3c72;">🚗 الطرف الأول: {st.session_state['p1_share']}</p>
+            <p style="margin: 0 0 0 0; font-size: 16px; font-weight: bold; color: #ff4b4b;">🚙 الطرف الثاني: {st.session_state['p2_share']}</p>
         </div>
     """, unsafe_allow_html=True)
 
