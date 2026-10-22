@@ -12,7 +12,7 @@ st.success("✅ تم ربط النظام بنجاح (تمت قراءة 115 صف�
 st.markdown("---")
 accident_desc = st.text_area("📝 أدخل تفاصيل الحادث (المركبات، الاتجاهات، الإشارات، الخ)", height=150)
 
-if st.button("🔍 بدء تحليل الحادث"):
+if st.button("🔍 بدء تحليل الحادث بالذكاء الاصطناعي"):
     if accident_desc.strip() == "":
         st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
     else:
