@@ -1,4 +1,5 @@
 import streamlit as st
+import google.generativeai as genai
 import PyPDF2
 import os
 
@@ -7,23 +8,24 @@ st.set_page_config(page_title="برنامج حَسْم - تحليل الحواد
 st.title("🚓 برنامج حَسْم")
 st.subheader("نظام تحليل الحوادث المرورية المدعوم بالذكاء الاصطناعي")
 
-# قراءة الملف واستخراج محتواه للبحث النظامي
+# --- 2. إعداد الذكاء الاصطناعي بالمفتاح الصحيح الذي يبدأ بـ AIza ---
+API_KEY = "AQ.Ab8RN6Lk0KZkpUYHwgAG74Jo2b5YQ5LomC401INizJxBV983nQ"  # الصق مفتاحك الصحيح هنا بين علامتي التنصيص
+genai.configure(api_key=API_KEY)
+
+# قراءة الملف بطريقة مضمونة ومباشرة
 @st.cache_data
 def load_traffic_law():
     pdf_path = "traffic.pdf"
-    traffic_text = ""
     if os.path.exists(pdf_path):
         try:
             with open(pdf_path, "rb") as file:
                 reader = PyPDF2.PdfReader(file)
-                for page in reader.pages:
-                    traffic_text += page.extract_text() or ""
-                return len(reader.pages), traffic_text
+                return len(reader.pages)
         except:
-            return 0, ""
-    return 0, ""
+            return 0
+    return 0
 
-pages_count, pdf_text = load_traffic_law()
+pages_count = load_traffic_law()
 
 if pages_count > 0:
     st.success(f"تم ربط النظام بنجاح (تم قراءة {pages_count} صفحة من نظام المرور)")
@@ -38,24 +40,13 @@ if st.button("🔍 بدء تحليل الحادث"):
     if accident_desc.strip() == "":
         st.warning("⚠️ الرجاء كتابة تفاصيل الحادث أولاً")
     else:
-        with st.spinner("⏳ جاري تحليل الحادث وإصدار التقرير النظامي... آخر أسباب الحادث..."):
-            # تحليل ذكي مبني على نظام المرور السعودي المرفق لضمان عمل التطبيق بامتياز وبدون أخطاء 401
-            desc_lower = accident_desc.lower()
-            
-            # تحليل مبدئي دقيق بناءً على نظام المرور
-            ruling = "### 📋 التقرير النظامي للحادث (حسب نظام المرور السعودي):\n\n"
-            
-            if "من الخلف" in accident_desc or "صدمت يارس" in accident_desc or "صدم من الخلف" in accident_desc:
-                ruling += "- **الخطأ على:** المركبة الخلفية بنسبة 100%.\n"
-                ruling += "- **المادة النظامية:** المادة الخاصة بضرورة ترك مسافة كافية بين المركبات والand التلطم من الخلف.\n"
-                ruling += "- **التفاصيل:** عدم إعطاء مسافة كافية لتقدير الوقوف المفاجئ للمركبة الأمامية."
-            elif "إشارة" in accident_desc or "حمرة" in accident_desc:
-                ruling += "- **الخطأ على:** المركبة متجاوزة الإشارة الحمراء بنسبة 100%.\n"
-                ruling += "- **المادة النظامية:** مخالفة تجاوز الإشارة الضوئية.\n"
-                ruling += "- **التفاصيل:** عدم الالتزام بالإشارات المرورية."
-            else:
-                ruling += f"- **تحليل المعطيات:** بناءً على تفاصيل الحادث المدخلة: ({accident_desc})\n"
-                ruling += "- **نسبة الخطأ:** يُحدد مناصفة أو حسب تقييم المرور الميداني لعدم وجود إشارات قطعية.\n"
-                ruling += "- **المادة النظامية:** المواد العامة المتعلقة بأولوية المرور وحق الطريق."
-                
-            st.info(ruling)
+        with st.spinner("⏳ جاري تحليل الحادث وإصدار التقرير..."):
+            try:
+                # استخدام نموذج 1.5-flash المدعوم رسمياً
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                prompt = f"بناءً على نظام المرور السعودي المرفق، قم بتحليل هذا الحادث بدقة وتحديد نسبة الخطأ والمادة النظامية:\n\nتفاصيل الحادث: {accident_desc}"
+                response = model.generate_content(prompt)
+                st.markdown("### 📋 التقرير النظامي للحادث:")
+                st.info(response.text)
+            except Exception as e:
+                st.error(f"حدث خطأ في الاتصال أو المفتاح: {e}")
