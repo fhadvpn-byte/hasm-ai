@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import PyPDF2
+import os
 
 # --- 1. إعداد واجهة البرنامج ---
 st.set_page_config(page_title="برنامج حَسْم - تحليل الحوادث", page_icon="🚓", layout="centered")
@@ -11,26 +12,25 @@ st.subheader("نظام تحليل الحوادث المرورية المدعوم
 API_KEY = "AQ.Ab8RN6Ijy1n4swLkb-ZFcaAER9CLz-5vxLE8oooI-gWHlie0LQ"
 genai.configure(api_key=API_KEY)
 
-# قراءة الملف مرة واحدة وتخزينها مؤقتاً لسرعة النظام
+# قراءة الملف بطريقة مضمونة ومباشرة
 @st.cache_data
-def load_traffic_law_text():
-    try:
-        with open("traffic.pdf", "rb") as file:
-            reader = PyPDF2.PdfReader(file)
-            text = ""
-            # نأخذ ملخص أو أول الصفحات لتسريع المعالجة وضمان الاستجابة الفورية
-            for page in reader.pages[:30]:
-                text += page.extract_text() + "\n"
-            return len(reader.pages), text
-    except:
-        return 0, ""
+def load_traffic_law():
+    pdf_path = "traffic.pdf"
+    if os.path.exists(pdf_path):
+        try:
+            with open(pdf_path, "rb") as file:
+                reader = PyPDF2.PdfReader(file)
+                return len(reader.pages)
+        except:
+            return 0
+    return 0
 
-pages_count, law_text = load_traffic_law_text()
+pages_count = load_traffic_law()
 
 if pages_count > 0:
     st.success(f"تم ربط النظام بنجاح (تم قراءة {pages_count} صفحة من نظام المرور)")
 else:
-    st.error("❌ لم يتم العثور على ملف traffic.pdf")
+    st.error("❌ لم يتم قراءة ملف traffic.pdf، تأكد من وجوده بالمجلد الرئيسي")
 
 # --- 3. واجهة المستخدم للإدخال ---
 st.markdown("---")
