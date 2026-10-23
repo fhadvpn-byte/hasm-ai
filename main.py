@@ -4,7 +4,6 @@ import re
 
 st.set_page_config(page_title="برنامج حَسْم الذكي", layout="centered")
 
-# تنسيق رسمي احترافي للواجهة والطباعة
 css_style = (
     "<style>"
     ".stApp { direction: rtl; text-align: right; }"
@@ -19,14 +18,15 @@ css_style = (
 )
 st.markdown(css_style, unsafe_allow_html=True)
 
-# دالة توحيد النص العربي لمعالجة كافة الأخطاء الإملائية
+# توحيد الحروف العربية ومعالجة الأخطاء المطبعية الشائعة (مثل مؤحرة -> مؤخرة)
 def normalize_ar(text):
     text = re.sub(r'[أإآ]', 'ا', text)
     text = re.sub(r'ة', 'ه', text)
     text = re.sub(r'ى', 'ي', text)
+    text = text.replace("مؤحره", "مؤخره").replace("موحره", "مؤخره").replace("موخره", "مؤخره")
     return text
 
-# 1. استخراج أسماء المركبات بدقة شاملة
+# استخراج أسماء المركبات
 def extract_vehicles(text):
     cars_list = [
         "اف جي", "إف جي", "صالون", "كامري", "يارس", "هايلكس", "لاندكروزر", 
@@ -37,13 +37,11 @@ def extract_vehicles(text):
         "أوبتيما", "كي 5", "سبورتاج", "شانجان", "ايدو", "إيدو", "جايكو", 
         "هافال", "جيلي", "ام جي", "إم جي", "لكزس", "مرسيدس", "بي ام", 
         "شاحنة", "شاحنه", "دينا", "تريلا", "قلاب", "وايت", "باص", "حافلة", 
-        "دباب", "دراجة", "بيك اب", "ونيت", "سيدان", "مركبه", "سياره"
+        "دباب", "دراجة", "بيك اب", "ونيت", "سيدان"
     ]
     
     found_cars = []
     for car in cars_list:
-        if car in ["مركبه", "سياره"]:
-            continue
         for match in re.finditer(re.escape(car), text):
             found_cars.append((match.start(), car))
     
@@ -62,20 +60,19 @@ def extract_vehicles(text):
     else:
         match1 = re.search(r'(?:الأولى|الاولى|الطرف الأول|الطرف الاول)\s+(?:مركبة\s+|سيارة\s+)?([^\s،.]+)', text)
         match2 = re.search(r'(?:الثانية|الثانيه|الطرف الثاني)\s+(?:مركبة\s+|سيارة\s+)?([^\s،.]+)', text)
-        p1 = match1.group(1).strip() if match1 else "المركبة الأولى"
-        p2 = match2.group(1).strip() if match2 else "المركبة الثانية"
+        p1 = match1.group(1).strip() if match1 else "المركبة الأولى (الأمامية)"
+        p2 = match2.group(1).strip() if match2 else "المركبة الثانية (اللاحقة)"
         return p1, p2
 
-# 2. خوارزمية فصل النصوص المدمجة لكل طرف بدقة
 def extract_party_clauses(text, p1, p2):
     norm_text = normalize_ar(text)
-    norm_p1 = normalize_ar(p1)
-    norm_p2 = normalize_ar(p2)
+    norm_p1 = normalize_ar(p1.split()[0])
+    norm_p2 = normalize_ar(p2.split()[0])
     
     markers = []
-    for m in re.finditer(re.escape(norm_p1) + r'|الاولي|الطرف الاول', norm_text):
+    for m in re.finditer(re.escape(norm_p1) + r'|الاولي|الطرف الاول|الاماميه|الامامي', norm_text):
         markers.append((m.start(), 1))
-    for m in re.finditer(re.escape(norm_p2) + r'|الثانيه|الطرف الثاني', norm_text):
+    for m in re.finditer(re.escape(norm_p2) + r'|الثانيه|الطرف الثاني|الخلفيه|اللاحقه', norm_text):
         markers.append((m.start(), 2))
         
     markers.sort(key=lambda x: x[0])
@@ -91,15 +88,16 @@ def extract_party_clauses(text, p1, p2):
             
     return " ".join(p1_chunks), " ".join(p2_chunks)
 
-# 3. استخراج وصف نقطة التصادم لكل مركبة لعرضها في التقرير
 def get_damage_desc(ctx):
-    if "مقدمه كامله" in ctx:
+    if "مقدمه سليمه" in ctx or "مقدمتها سليمه" in ctx:
+        return "المؤخرة فقط (المقدمة سليمة)"
+    elif "مقدمه كامله" in ctx:
         return "المقدمة الكاملة"
     elif "مقدمه" in ctx or "الامام" in ctx or "صدام امامي" in ctx:
         return "المقدمة الأمامية"
-    elif "الجانب الايمن" in ctx or "جنب ايمن" in ctx or "يمين" in ctx and "جانب" in ctx:
+    elif "الجانب الايمن" in ctx or "جنب ايمن" in ctx or ("يمين" in ctx and "جانب" in ctx):
         return "الجانب الأيمن"
-    elif "الجانب الايسر" in ctx or "جنب ايسر" in ctx or "يسار" in ctx and "جانب" in ctx:
+    elif "الجانب الايسر" in ctx or "جنب ايسر" in ctx or ("يسار" in ctx and "جانب" in ctx):
         return "الجانب الأيسر"
     elif "جانب" in ctx or "جنب" in ctx or "باب" in ctx or "رفرف" in ctx:
         return "الجانب"
@@ -107,15 +105,44 @@ def get_damage_desc(ctx):
         return "المؤخرة الخلفية"
     return "حسب المعاينة الميدانية"
 
-# 4. المحرك القانوني والهندسي المعتمد وفق نظام المرور السعودي ولائحته التنفيذية
+# المحرك القانوني والهندسي الشامل (يدعم حوادث التتابع المتعددة والحوادث الثنائية)
 def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
-    party1, party2 = extract_vehicles(text)
     norm_all = normalize_ar(text)
+    
+    # فحص هل الحادث "تتابع مركبات" أو متعدد الأطراف
+    num_match = re.search(r'(\d+)\s*(?:مركبات|سيارات|اطراف|مركبه|سياره)', norm_all)
+    num_vehicles = int(num_match.group(1)) if num_match else 2
+    is_chain_accident = any(w in norm_all for w in ["تتابع", "متتاليه", "التي امامه", "التي امامها", "كل مركبه"]) or num_vehicles > 2
+
+    # ---------------------------------------------------------
+    # أولاً: معالجة حوادث التتابع (الاصطدام المتتالي من الخلف)
+    # ---------------------------------------------------------
+    if is_chain_accident and "تقاطع" not in norm_all:
+        party1 = "المركبة رقم (1) - الأمامية"
+        party2 = f"المركبات اللاحقة من (2) إلى ({num_vehicles})" if num_vehicles > 2 else "المركبة رقم (2) - الخلفية"
+        p1_fault = 0
+        p2_fault = 100
+        article_num = "المادة (55) - اللائحة التنفيذية (55/1) والمادة (60) من نظام المرور السعودي"
+        article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ، وفي حوادث التتابع يتحمل قائد كل مركبة لاحقة مسؤولية الاصطدام بمؤخرة المركبة التي أمامه."
+        application_text = (
+            f"تُعفى المركبة الأمامية الأولى رقم (1) من المسؤولية تماماً بنسبة (0%) لسلامة مقدمتها وثبات مسارها، "
+            f"بينما تتحمل كل مركبة من المركبات اللاحقة (من المركبة 2 إلى المركبة {num_vehicles}) نسبة (100%) عن الأضرار التي أحدثتها بمقدمتها في مؤخرة المركبة التي أمامها مباشرة لعدم ترك المسافة النظامية الآمنة."
+        )
+        tech_summary = f"حادث تصادم متتالي (تتابع) مكون من ({num_vehicles}) مركبات في مسار واحد؛ ثبت فيه سلامة مقدمة المركبة الأولى، واصطدام كل مركبة لاحقة بمؤخرة المركبة التي أمامها نتيجة عدم ترك المسافة الآمنة."
+        dmg1 = "المؤخرة الخلفية (المقدمة سليمة)"
+        dmg2 = "المقدمة الأمامية (والمؤخرة لما تلاها)"
+        
+        return party1, party2, p1_fault, p2_fault, article_num, article_text, application_text, tech_summary, dmg1, dmg2, num_vehicles, True
+
+    # ---------------------------------------------------------
+    # ثانياً: معالجة الحوادث الثنائية (اصطدام خلفي، رجوع، انحراف، تقاطعات، إلخ)
+    # ---------------------------------------------------------
+    party1, party2 = extract_vehicles(text)
     p1_ctx, p2_ctx = extract_party_clauses(text, party1, party2)
 
     def get_props(ctx):
         return {
-            "stopped": any(w in ctx for w in ["وقوف", "متوقف", "واقف", "ثابت"]),
+            "stopped": any(w in ctx for w in ["وقوف", "متوقف", "واقف", "ثابت", "سليمه"]),
             "reversing": any(w in ctx for w in ["رجوع", "بالرجوع", "يرجع", "للخلف", "ريوس"]),
             "swerving": any(w in ctx for w in ["انحراف", "انحرفت", "دوران", "تغيير مسار", "انتقال", "لف"]),
             "overtaking": any(w in ctx for w in ["تجاوز", "يتجاوز", "تخطي"]),
@@ -135,15 +162,32 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
     f1 = get_props(p1_ctx)
     f2 = get_props(p2_ctx)
 
-    # القيم الافتراضية (المادة 56 والمادة 60)
+    # القيم الافتراضية
     p1_fault, p2_fault = 50, 50
     article_num = "المادة (56) - اللائحة التنفيذية (56/1) والمادة (60/1) من نظام المرور السعودي"
     article_text = "تحدد أولوية المرور في التقاطعات غير المنظمة وفقاً لقواعد الأفضلية الرسمية (الطريق الرئيسي، ثم الطريق الأوسع، ثم القادم من جهة اليمين). وفي حال تكافؤ الأفضلية وتعذر تحديد أسبقية الدخول توزع المسؤولية مناصفة."
-    application_text = "نظراً لتكافؤ الأفضلية في منطقة التقاطع وعدم ثبوت أسبقية تامة لأحد الطرفين، توزع نسبة المسؤولية مناصفة (50%) لكل طرف عملاً بالمادة (60) من النظام."
-    tech_summary = f"تم فحص مسارات المركبة الأولى ({party1}) والمركبة الثانية ({party2}) ومطابقة نقاط التصادم وتطبيق قواعد الأفضلية في التقاطعات."
+    application_text = "نظراً لتكافؤ الأفضلية وعدم ثبوت أسبقية تامة لأحد الطرفين، توزع نسبة المسؤولية مناصفة (50%) لكل طرف عملاً بالمادة (60) من النظام."
+    tech_summary = f"تم فحص مسارات المركبة الأولى ({party1}) والمركبة الثانية ({party2}) ومطابقة نقاط التصادم."
 
-    # 1. الرجوع إلى الخلف (المادة 54 - الفقرة 2)
-    if f1["reversing"] or f2["reversing"] or "بالرجوع" in norm_all or "رجوع للخلف" in norm_all:
+    # 1. عدم ترك مسافة آمنة - الاصطدام من الخلف (المادة 55) - الأولوية القصوى إذا ذكر مؤخرة أو من الخلف بدون تقاطع
+    if any(w in norm_all for w in ["مؤخره", "خلفيه", "من الخلف", "صدام خلفي", "الاماميه", "امامه", "امامها"]) and ("تقاطع" not in norm_all) and not (f1["reversing"] or f2["reversing"] or "رجوع" in norm_all):
+        if f2["rear"] and f1["front"] and not f1["rear"]:
+            p1_fault, p2_fault = 100, 0
+            fault_car, front_car = party1, party2
+            f1["damage"], f2["damage"] = "المقدمة الأمامية", "المؤخرة الخلفية"
+        else:
+            p1_fault, p2_fault = 0, 100
+            fault_car, front_car = party2, party1
+            if f1["damage"] == "حسب المعاينة الميدانية": f1["damage"] = "المؤخرة الخلفية (المقدمة سليمة)"
+            if f2["damage"] == "حسب المعاينة الميدانية": f2["damage"] = "المقدمة الأمامية"
+            
+        article_num = "المادة (55) - اللائحة التنفيذية (55/1) والمادة (60) من نظام المرور السعودي"
+        article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ."
+        application_text = f"تُعفى المركبة الأمامية ({front_car}) من المسؤولية تماماً بنسبة (0%)، وتتحمل المركبة اللاحقة ({fault_car}) كامل المسؤولية النظامية بنسبة (100%) لعدم ترك المسافة النظامية الآمنة والاصطدام بمؤخرة المركبة التي أمامها."
+        tech_summary = f"اصطدام مقدمة المركبة اللاحقة ({fault_car}) بمؤخرة المركبة الأمامية ({front_car}) أثناء السير في ذات المسار نتيجة عدم ترك مسافة آمنة."
+
+    # 2. الرجوع إلى الخلف (المادة 54 - الفقرة 2)
+    elif f1["reversing"] or f2["reversing"] or "بالرجوع" in norm_all or "رجوع للخلف" in norm_all:
         if f2["reversing"] or (f1["stopped"] and not f2["stopped"]):
             p1_fault, p2_fault = 0, 100
             fault_car, ok_car = party2, party1
@@ -156,7 +200,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة ({fault_car}) التي قامت بعملية الرجوع للخلف دون التأكد من خلو الطريق المسؤولية الكاملة بنسبة (100%)، وتُعفى المركبة ({ok_car}) لسلامة موقفها النظامي (0%)."
         tech_summary = f"ثبت من المعاينة الفنية أن المركبة ({ok_car}) كانت في وضع نظامي سليم، بينما قامت المركبة ({fault_car}) بالرجوع إلى الخلف والاصطدام بها."
 
-    # 2. الانحراف أو تغيير المسار أو الدوران (المادة 50 - الفقرة 1)
+    # 3. الانحراف أو تغيير المسار أو الدوران (المادة 50 - الفقرة 1)
     elif f1["swerving"] or f2["swerving"] or "انحراف" in norm_all or "تغيير مسار" in norm_all:
         if f2["swerving"] or (f1["stopped"] and not f2["stopped"]):
             p1_fault, p2_fault = 0, 100
@@ -170,7 +214,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة ({fault_car}) كامل المسؤولية النظامية بنسبة (100%) للانحراف أو تغيير المسار دون التأكد من خلو الطريق، وتعفى المركبة ({ok_car}) بنسبة (0%)."
         tech_summary = f"انحراف غير آمن من قِبل المركبة ({fault_car}) أدى لقطع مسار المركبة ({ok_car}) ووقوع الاصطدام."
 
-    # 3. التجاوز الخاطئ (المادة 57)
+    # 4. التجاوز الخاطئ (المادة 57)
     elif f1["overtaking"] or f2["overtaking"] or "تجاوز خاطئ" in norm_all:
         if f2["overtaking"]:
             p1_fault, p2_fault = 0, 100
@@ -184,8 +228,8 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة ({fault_car}) المسؤولية الكاملة بنسبة (100%) للشروع في تجاوز غير آمن والتسبب المباشر في وقوع الحادث."
         tech_summary = f"قيام المركبة ({fault_car}) بالتجاوز الخاطئ في ظروف غير آمنة والاصطدام بالمركبة ({ok_car})."
 
-    # 4. عكس السير أو قطع الإشارة الحمراء (المادة 50/4 والمادة 68)
-    elif f1["wrong_way"] or f2["wrong_way"] or f1["red_light"] or f2["red_light"]:
+    # 5. عكس السير أو قطع الإشارة الحمراء (المادة 50/4 والمادة 68)
+    elif f1["wrong_way"] or f2["wrong_way"] or f1["red_light"] or f2["red_light"] or "عكس السير" in norm_all or "قطع اشاره" in norm_all:
         if f2["wrong_way"] or f2["red_light"]:
             p1_fault, p2_fault = 0, 100
             fault_car, ok_car = party2, party1
@@ -198,35 +242,20 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة المخالفة ({fault_car}) كامل المسؤولية النظامية عن الحادث بنسبة (100%)، وتعفى المركبة ({ok_car}) بنسبة (0%)."
         tech_summary = f"ثبت ارتكاب المركبة ({fault_car}) لمخالفة مرورية جسيمة (قطع إشارة حمراء / عكس سير) تسببت في الحادث."
 
-    # 5. عدم ترك مسافة آمنة - الاصطدام من الخلف (المادة 55)
-    elif (f1["rear"] or f2["rear"] or "من الخلف" in norm_all) and ("تقاطع" not in norm_all):
-        if f1["rear"] or (f2["front"] and not f1["front"]):
-            p1_fault, p2_fault = 0, 100
-            fault_car, front_car = party2, party1
-        else:
-            p1_fault, p2_fault = 100, 0
-            fault_car, front_car = party1, party2
-            
-        article_num = "المادة (55) - اللائحة التنفيذية (55/1) والمادة (60) من نظام المرور السعودي"
-        article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ."
-        application_text = f"تتحمل المركبة اللاحقة ({fault_car}) كامل المسؤولية النظامية بنسبة (100%) لعدم ترك المسافة النظامية الآمنة والاصطدام بمؤخرة المركبة الأمامية ({front_car})."
-        tech_summary = f"اصطدام مقدمة المركبة اللاحقة ({fault_car}) بمؤخرة المركبة الأمامية ({front_car}) أثناء السير في ذات المسار."
-
     # 6. حوادث الدوار (المادة 56 - الفقرة 6)
     elif "دوار" in norm_all or "الدوار" in norm_all:
         p1_fault, p2_fault = 0, 100
         article_num = "المادة (56) - الفقرة (6) من نظام المرور السعودي (أولوية السير في الدوار)"
         article_text = "تكون أولوية المرور في الدوار للمركبات المتحركة داخله، وعلى المركبات القادمة من الطرق الفرعية أو المؤدية إليه التوقف التام وإفساح المجال."
-        application_text = f"تتحمل المركبة الداخلة إلى الدوار دون إفساح المجال المسؤولية النظامية الكاملة (100%)."
+        application_text = "تتحمل المركبة الداخلة إلى الدوار دون إفساح المجال المسؤولية النظامية الكاملة (100%)."
         tech_summary = "حادث مروري في منطقة دوار نتيجة عدم مراعاة أولوية السير للمركبات المتحركة داخل الدوار."
 
-    # 7. حوادث التقاطعات (المادة 56 واللائحة 56/1 + المادة 60 لتوزيع النسب 100%، 75%، 50%، 25%)
+    # 7. حوادث التقاطعات (المادة 56 واللائحة 56/1 + المادة 60)
     elif "تقاطع" in norm_all:
         both_bumps = norm_all.count("مطب") >= 2
         p1_priority = f1["wider"] or f2["narrow"] or (f1["ns"] and f2["ew"])
         p2_priority = f2["wider"] or f1["narrow"] or (f2["ns"] and f1["ew"])
 
-        # الحالة أ: الطرف الأول له أفضلية (طريق أوسع أو قادم من اليمين) مع وجود مطبات أو اصطدام بمقدمته في جانب الثاني (25% على الأول و 75% على الثاني)
         if p1_priority and (both_bumps or (f1["front"] and f2["side"])):
             p1_fault, p2_fault = 25, 75
             article_num = "المادة (56) - اللائحة التنفيذية (56/1) والمادة (60/1) من نظام المرور السعودي"
@@ -262,8 +291,12 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
             application_text = f"تتحمل المركبة ({party1}) نسبة (75%) لاصطدامها بـ ({f1['damage']}) في ({f2['damage']}) للمركبة ({party2}) التي سبقتها بالدخول واجتياز منتصف التقاطع، وتتحمل ({party2}) نسبة (25%) لعدم الحذر التام."
             tech_summary = f"نقطة التصادم ({f1['damage']} للمركبة {party1} في {f2['damage']} للمركبة {party2}) تثبت فنياً أسبقية دخول المركبة ({party2}) لمنطقة التقاطع."
 
-    # خيارات الضبط المتقدم (في حال استخدامها من قسم الإعدادات المتقدمة)
+    # خيارات الضبط المتقدم (إن تم اختيارها يدوياً)
     law_dict = {
+        "المادة (55) - عدم ترك مسافة آمنة (الاصطدام من الخلف / التتابع)": (
+            "المادة (55) - اللائحة التنفيذية (55/1) والمادة (60) من نظام المرور السعودي",
+            "يجب على قائد المركبة ترك مسافة كافية بينه وبين المركبة التي أمامه تمكنه من التوقف بأمان في حال توقف المركبة الأمامية فجأة."
+        ),
         "المادة (56) - أفضلية التقاطعات والطرق الرئيسية": (
             "المادة (56) - اللائحة التنفيذية (56/1) والمادة (60) من نظام المرور السعودي",
             "تكون أولوية المرور في التقاطعات غير المنظمة للمركبات في الطريق الرئيسي، فالطريق الأوسع، ثم للقادم من اليمين، مع مراعاة أسبقية الدخول للتقاطع ووجوب التهدئة عند المطبات الصناعية."
@@ -275,10 +308,6 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         "المادة (50) - الانحراف وتغيير المسار والدوران": (
             "المادة (50) - الفقرة (1/50) واللائحة (24/2) من نظام المرور السعودي",
             "على كل سائق قبل القيام بأي حركة خاصة بالانحراف بسيارته يميناً أو شمالاً أو الدوران أو تغيير المسار التأكد من إمكان إجراء ذلك دون خطر وإعطاء الإشارات اللازمة."
-        ),
-        "المادة (55) - عدم ترك مسافة آمنة (الاصطدام من الخلف)": (
-            "المادة (55) - اللائحة التنفيذية (55/1) من نظام المرور السعودي",
-            "يجب على قائد المركبة ترك مسافة كافية بينه وبين المركبة التي أمامه تمكنه من التوقف بأمان في حال توقف المركبة الأمامية فجأة."
         ),
         "المادة (57) - التجاوز الخاطئ": (
             "المادة (57) - اللائحة التنفيذية (57/1) من نظام المرور السعودي",
@@ -304,7 +333,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         p1_fault, p2_fault = Map_Manual[manual_mode]
         application_text = f"بناءً على المعاينة الفنية الميدانية وتطبيق {article_num}، تتحمل المركبة الأولى ({party1}) نسبة ({p1_fault}%)، وتتحمل المركبة الثانية ({party2}) نسبة ({p2_fault}%)."
 
-    return party1, party2, p1_fault, p2_fault, article_num, article_text, application_text, tech_summary, f1["damage"], f2["damage"]
+    return party1, party2, p1_fault, p2_fault, article_num, article_text, application_text, tech_summary, f1["damage"], f2["damage"], 2, False
 
 # ---------------------------------------------------------
 # واجهة المستخدم الرسمية
@@ -326,7 +355,6 @@ accident_text = st.text_area(
     height=155
 )
 
-# إخفاء خيارات التحكم اليدوي داخل تبويب فرعي أنيق لكي تبقى الواجهة الرئيسية آلية ورسمية أمام المدير
 with st.expander("⚙️ خيارات التحكم المتقدم للمحقق (اختياري - يترك على الوضع الآلي)"):
     col1, col2 = st.columns(2)
     with col1:
@@ -334,8 +362,8 @@ with st.expander("⚙️ خيارات التحكم المتقدم للمحقق (
             "📊 تحديد النسب:",
             [
                 "آلي",
-                "الطرف الأول (25%) - الطرف الثاني (75%)",
                 "الطرف الأول (0%) - الطرف الثاني (100%)",
+                "الطرف الأول (25%) - الطرف الثاني (75%)",
                 "الطرف الأول (50%) - الطرف الثاني (50%)",
                 "الطرف الأول (75%) - الطرف الثاني (25%)",
                 "الطرف الأول (100%) - الطرف الثاني (0%)"
@@ -346,10 +374,10 @@ with st.expander("⚙️ خيارات التحكم المتقدم للمحقق (
             "⚖️ تحديد المادة النظامية:",
             [
                 "آلي",
+                "المادة (55) - عدم ترك مسافة آمنة (الاصطدام من الخلف / التتابع)",
                 "المادة (56) - أفضلية التقاطعات والطرق الرئيسية",
                 "المادة (54) - الرجوع إلى الخلف",
                 "المادة (50) - الانحراف وتغيير المسار والدوران",
-                "المادة (55) - عدم ترك مسافة آمنة (الاصطدام من الخلف)",
                 "المادة (57) - التجاوز الخاطئ",
                 "المادة (50/4) - قطع الإشارة الضوئية أو عكس السير"
             ]
@@ -362,20 +390,29 @@ if analyze_btn:
     if accident_text.strip() == "":
         st.warning("يرجى إدخال تفاصيل الحادث أولاً.")
     else:
-        p1, p2, f1, f2, article_num, article_text, application_text, tech_summary, dmg1, dmg2 = analyze_accident(accident_text, manual_override, law_override)
+        p1, p2, f1, f2, article_num, article_text, application_text, tech_summary, dmg1, dmg2, num_v, is_chain = analyze_accident(accident_text, manual_override, law_override)
         
         st.markdown("---")
         st.subheader("📋 التقرير النظامي المفصل للحادث")
         
         with st.expander("أولاً: التحليل الفني للحادث 🔍", expanded=True):
             st.write(f"**خلاصة الفحص الميداني:** {tech_summary}")
-            table_html = (
-                f'<table class="official-table">'
-                f'<tr><th>الطرف</th><th>نوع المركبة</th><th>موضع التصادم</th><th>نسبة المسؤولية</th></tr>'
-                f'<tr><td>الطرف الأول</td><td>{p1}</td><td>{dmg1}</td><td><strong>{f1}%</strong></td></tr>'
-                f'<tr><td>الطرف الثاني</td><td>{p2}</td><td>{dmg2}</td><td><strong>{f2}%</strong></td></tr>'
-                f'</table>'
-            )
+            
+            # إذا كان حادث تتابع يبني جدولاً تفصيلياً لجميع المركبات المشتركة
+            if is_chain and num_v > 2:
+                rows_html = f'<tr><td>الطرف رقم (1)</td><td>المركبة الأمامية الأولى</td><td>المؤخرة الخلفية (المقدمة سليمة)</td><td><strong style="color:#4ade80;">0% (مُعفاة)</strong></td></tr>'
+                for i in range(2, min(num_v + 1, 25)):
+                    dmg_desc = "المقدمة الأمامية والمؤخرة الخلفية" if i < num_v else "المقدمة الأمامية فقط (المركبة الأخيرة)"
+                    rows_html += f'<tr><td>الطرف رقم ({i})</td><td>المركبة اللاحقة ({i})</td><td>{dmg_desc}</td><td><strong style="color:#f87171;">100% (عما أمامها)</strong></td></tr>'
+                table_html = f'<table class="official-table"><tr><th>الطرف</th><th>وصف المركبة</th><th>موضع التصادم</th><th>نسبة المسؤولية (المادة 55)</th></tr>{rows_html}</table>'
+            else:
+                table_html = (
+                    f'<table class="official-table">'
+                    f'<tr><th>الطرف</th><th>نوع المركبة</th><th>موضع التصادم</th><th>نسبة المسؤولية</th></tr>'
+                    f'<tr><td>الطرف الأول</td><td>{p1}</td><td>{dmg1}</td><td><strong>{f1}%</strong></td></tr>'
+                    f'<tr><td>الطرف الثاني</td><td>{p2}</td><td>{dmg2}</td><td><strong>{f2}%</strong></td></tr>'
+                    f'</table>'
+                )
             st.markdown(table_html, unsafe_allow_html=True)
             
         with st.expander("ثانياً: التكييف النظامي ونصوص المواد وتقسيماتها ⚖️", expanded=True):
@@ -389,8 +426,8 @@ if analyze_btn:
             st.markdown("**موضوع التقرير:** معاينة حادث مروري وتحليل المسؤولية.")
             st.markdown(f"* **وصف الحادث:** {accident_text}")
             st.markdown("**النتيجة النهائية وتوزيع النسب:**")
-            st.markdown(f"* **الطرف الأول ({p1}):** {f1}% (نقطة التصادم: {dmg1})")
-            st.markdown(f"* **الطرف الثاني ({p2}):** {f2}% (نقطة التصادم: {dmg2})")
+            st.markdown(f"* **{p1}:** {f1}% (نقطة التصادم: {dmg1})")
+            st.markdown(f"* **{p2}:** {f2}% (نقطة التصادم: {dmg2})")
             st.markdown(f"* **السند النظامي المطبق (رقم المادة):** {article_num}")
             st.markdown(f"* **نص المادة المستند لها:** {article_text}")
             st.markdown(f"* **التطبيق النظامي على الحادث:** {application_text}")
@@ -398,8 +435,8 @@ if analyze_btn:
         green_html = (
             f'<div class="green-box">'
             f'<h4 style="color: #4ade80; margin-bottom: 15px;">📌 النسب النظامية المعتمدة (المصححة):</h4>'
-            f'<p style="color: white; font-size: 18px; font-weight: bold; margin: 5px 0;">🚗 الطرف الأول ({p1}): {f1}%</p>'
-            f'<p style="color: #f87171; font-size: 18px; font-weight: bold; margin: 5px 0;">🚙 الطرف الثاني ({p2}): {f2}%</p>'
+            f'<p style="color: white; font-size: 18px; font-weight: bold; margin: 5px 0;">🚗 {p1}: {f1}%</p>'
+            f'<p style="color: #f87171; font-size: 18px; font-weight: bold; margin: 5px 0;">🚙 {p2}: {f2}% (مسؤولية كل مركبة عما أمامها)</p>'
             f'<hr style="border-color: #15803d; margin: 12px 0;">'
             f'<p style="color: #bbf7d0; font-size: 15px; margin: 4px 0;"><strong>⚖️ السند النظامي:</strong> {article_num}</p>'
             f'<p style="color: #e2e8f0; font-size: 14px; margin: 4px 0;"><strong>📜 نص المادة:</strong> {article_text}</p>'
