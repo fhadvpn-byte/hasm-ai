@@ -4,7 +4,7 @@ import re
 
 st.set_page_config(page_title="حسم الذكي للحوادث المرورية", layout="centered")
 
-# تنسيق تقني فاخر للخطوط والواجهة والطباعة بدون أي تداخل
+# تنسيق تقني فاخر للخطوط والواجهة والطباعة وإصلاح تداخل الرموز نهائياً
 css_style = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
@@ -36,6 +36,22 @@ p, div, h1, h2, h3, h4, span, label, textarea, li, th, td { text-align: right !i
    color: #94a3b8;
    font-size: 14px;
    font-weight: 500;
+}
+
+/* إصلاح تداخل أيقونات التوسيع والتوجيه في الـ Expander */
+[data-testid="stExpander"] {
+   background-color: #111827;
+   border: 1px solid #374151;
+   border-radius: 10px;
+   margin-bottom: 15px;
+}
+[data-testid="stExpander"] summary {
+   direction: rtl !important;
+   text-align: right !important;
+}
+[data-testid="stExpander"] summary p {
+   font-weight: 700;
+   color: #38bdf8;
 }
 
 .law-box { background-color: #1e293b; border-right: 4px solid #38bdf8; padding: 16px; border-radius: 8px; margin: 12px 0; color: #f8fafc; line-height: 1.7; }
@@ -419,7 +435,7 @@ accident_text = st.text_area(
     height=155
 )
 
-# لوحة تحكم متقدمة منسقة بعناية لتجنب أي تداخل
+# لوحة تحكم متقدمة أنيقة وبدون أي تداخل في الرموز
 with st.expander("⚙️ لوحة التحكم المتقدم للمحقق (اختياري - يترك على الوضع الآلي)"):
     col1, col2 = st.columns(2)
     with col1:
@@ -448,7 +464,6 @@ with st.expander("⚙️ لوحة التحكم المتقدم للمحقق (اخ
             ]
         )
 
-# أزرار التحكم بتصميم تقني حديث متجاور
 btn_col1, btn_col2 = st.columns([3, 1])
 with btn_col1:
     analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
