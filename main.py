@@ -2,75 +2,23 @@ import streamlit as st
 import streamlit.components.v1 as components
 import re
 
-st.set_page_config(page_title="حسم الذكي للحوادث المرورية", layout="centered")
+st.set_page_config(page_title="برنامج حَسْم الذكي", layout="centered")
 
-# تنسيق تقني فاخر مع اصلاح لون النص داخل مربعات الإدخال ليصبح مرئياً بوضوح
-css_style = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
-.stApp { direction: rtl; text-align: right; font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: #f8fafc; }
-p, div, h1, h2, h3, h4, span, label, li, th, td { text-align: right !important; direction: rtl !important; font-family: 'Tajawal', sans-serif !important; color: #f8fafc; }
-
-/* إصلاح لون النص داخل مربعات الإدخال وصناديق النص ليكون مرئياً بوضوح */
-textarea, input {
-    color: #ffffff !important;
-    background-color: #111827 !important;
-    font-family: 'Tajawal', sans-serif !important;
-}
-
-/* تصميم الشعار التقني الفاخر */
-.tech-header {
-   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-   border: 1px solid #38bdf8;
-   padding: 24px;
-   border-radius: 14px;
-   text-align: center;
-   margin-bottom: 20px;
-   box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.15);
-}
-.tech-logo {
-   font-size: 28px;
-   font-weight: 900;
-   color: #f8fafc;
-   letter-spacing: -0.5px;
-   margin-bottom: 6px;
-}
-.tech-logo span {
-   color: #38bdf8;
-   text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
-}
-.tech-subtitle {
-   color: #94a3b8;
-   font-size: 14px;
-   font-weight: 500;
-}
-
-/* إصلاح تداخل أيقونات التوسيع والتوجيه في الـ Expander */
-[data-testid="stExpander"] {
-   background-color: #111827;
-   border: 1px solid #374151;
-   border-radius: 10px;
-   margin-bottom: 15px;
-}
-[data-testid="stExpander"] summary {
-   direction: rtl !important;
-   text-align: right !important;
-}
-[data-testid="stExpander"] summary p {
-   font-weight: 700;
-   color: #38bdf8;
-}
-
-.law-box { background-color: #1e293b; border-right: 4px solid #38bdf8; padding: 16px; border-radius: 8px; margin: 12px 0; color: #f8fafc; line-height: 1.7; }
-.green-box { background-color: #0d2e1e; border-right: 5px solid #00a859; padding: 20px; border-radius: 10px; margin-top: 15px; margin-bottom: 15px; }
-.official-table { width: 100%; border-collapse: collapse; margin: 15px 0; background-color: #111827; border-radius: 8px; overflow: hidden; }
-.official-table th { background-color: #1f2937; color: #38bdf8; padding: 10px; border: 1px solid #374151; }
-.official-table td { padding: 10px; border: 1px solid #374151; color: #e5e7eb; }
-@media print { .stButton, textarea, header, footer, .no-print { display: none !important; } }
-</style>
-"""
+css_style = (
+    "<style>"
+    ".stApp { direction: rtl; text-align: right; }"
+    "p, div, h1, h2, h3, h4, span, label, textarea, li, th, td { text-align: right !important; direction: rtl !important; }"
+    ".law-box { background-color: #1e293b; border-right: 4px solid #38bdf8; padding: 16px; border-radius: 8px; margin: 12px 0; color: #f8fafc; line-height: 1.7; }"
+    ".green-box { background-color: #0d2e1e; border-right: 5px solid #00a859; padding: 20px; border-radius: 10px; margin-top: 15px; margin-bottom: 15px; }"
+    ".official-table { width: 100%; border-collapse: collapse; margin: 15px 0; background-color: #111827; border-radius: 8px; overflow: hidden; }"
+    ".official-table th { background-color: #1f2937; color: #38bdf8; padding: 10px; border: 1px solid #374151; }"
+    ".official-table td { padding: 10px; border: 1px solid #374151; color: #e5e7eb; }"
+    "@media print { .stButton, textarea, header, footer, .no-print { display: none !important; } }"
+    "</style>"
+)
 st.markdown(css_style, unsafe_allow_html=True)
 
+# توحيد الحروف وتحويل الأرقام الهندية (٥) إلى أرقام قياسية (5) لضمان دقة القراءة
 def normalize_ar(text):
     arabic_nums = "٠١٢٣٤٥٦٧٨٩"
     english_nums = "0123456789"
@@ -160,12 +108,15 @@ def get_damage_desc(ctx):
         return "المؤخرة الخلفية"
     return "حسب المعاينة الميدانية"
 
+# استخراج أرقام المركبات المستثناة في حوادث التتابع (التي تركت مسافة آمنة واندفعت قسراً)
 def extract_pushed_vehicles(norm_text, total_vehicles):
     pushed_list = []
+    # البحث عن نمط: (المركبه رقم 5 ... مسافه امنه / قوه الاندفاع / متوقفه)
     matches = re.finditer(r'(?:المركبه|مركبه|السياره|سياره|الطرف|رقم)\s*(?:رقم\s*)?(\d+)', norm_text)
     for m in matches:
         v_num = int(m.group(1))
         if 1 < v_num <= total_vehicles:
+            # فحص النص القريب من رقم المركبة
             start_idx = max(0, m.start() - 20)
             end_idx = min(len(norm_text), m.end() + 90)
             window = norm_text[start_idx:end_idx]
@@ -177,10 +128,14 @@ def extract_pushed_vehicles(norm_text, total_vehicles):
 def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
     norm_all = normalize_ar(text)
     
+    # فحص هل الحادث "تتابع مركبات"
     num_match = re.search(r'(\d+)\s*(?:مركبات|سيارات|اطراف|مركبه|سياره)', norm_all)
     num_vehicles = int(num_match.group(1)) if num_match else 2
     is_chain_accident = any(w in norm_all for w in ["تتابع", "متتاليه", "التي امامه", "التي امامها", "كل مركبه"]) or num_vehicles > 2
 
+    # ---------------------------------------------------------
+    # أولاً: معالجة حوادث التتابع (مع دعم استثناء المركبات المندفعة قسراً)
+    # ---------------------------------------------------------
     if is_chain_accident and "تقاطع" not in norm_all:
         pushed_cars = extract_pushed_vehicles(norm_all, num_vehicles)
         
@@ -214,7 +169,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
             party1 = "المركبة رقم (1) - الأمامية"
             party2 = f"المركبات اللاحقة من (2) إلى ({num_vehicles})" if num_vehicles > 2 else "المركبة رقم (2) - الخلفية"
             article_num = "المادة (55) - اللائحة التنفيذية (55/1) والمادة (60) من نظام المرور السعودي"
-            article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ، وفي حوادث التتابع يتحمل كل قائد مركبة لاحقة مسؤولية الاصطدام بمؤخرة المركبة التي أمامه."
+            article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ، وفي حوادث التتابع يتحمل قائد كل مركبة لاحقة مسؤولية الاصطدام بمؤخرة المركبة التي أمامه."
             application_text = (
                 f"تُعفى المركبة الأمامية الأولى رقم (1) من المسؤولية تماماً بنسبة (0%) لسلامة مقدمتها وثبات مسارها، "
                 f"بينما تتحمل كل مركبة من المركبات اللاحقة (من المركبة 2 إلى المركبة {num_vehicles}) نسبة (100%) عن الأضرار التي أحدثتها بمقدمتها في مؤخرة المركبة التي أمامها مباشرة لعدم ترك المسافة النظامية الآمنة."
@@ -228,6 +183,9 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         
         return party1, party2, p1_fault, p2_fault, article_num, article_text, application_text, tech_summary, dmg1, dmg2, num_vehicles, True, pushed_cars
 
+    # ---------------------------------------------------------
+    # ثانياً: معالجة الحوادث الثنائية المعتادة
+    # ---------------------------------------------------------
     party1, party2 = extract_vehicles(text)
     p1_ctx, p2_ctx = extract_party_clauses(text, party1, party2)
 
@@ -259,6 +217,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
     application_text = "نظراً لتكافؤ الأفضلية وعدم ثبوت أسبقية تامة لأحد الطرفين، توزع نسبة المسؤولية مناصفة (50%) لكل طرف عملاً بالمادة (60) من النظام."
     tech_summary = f"تم فحص مسارات المركبة الأولى ({party1}) والمركبة الثانية ({party2}) ومطابقة نقاط التصادم."
 
+    # 1. الاصطدام من الخلف - عدم ترك مسافة آمنة (المادة 55)
     if any(w in norm_all for w in ["مؤخره", "خلفيه", "من الخلف", "صدام خلفي", "الاماميه", "امامه", "امامها", "مسافه امنه"]) and ("تقاطع" not in norm_all) and not (f1["reversing"] or f2["reversing"] or "رجوع" in norm_all):
         if f2["rear"] and f1["front"] and not f1["rear"]:
             p1_fault, p2_fault = 100, 0
@@ -275,6 +234,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تُعفى المركبة الأمامية ({front_car}) من المسؤولية تماماً بنسبة (0%)، وتتحمل المركبة اللاحقة ({fault_car}) كامل المسؤولية النظامية بنسبة (100%) لعدم ترك المسافة النظامية الآمنة والاصطدام بمؤخرة المركبة التي أمامها."
         tech_summary = f"اصطدام مقدمة المركبة اللاحقة ({fault_car}) بمؤخرة المركبة الأمامية ({front_car}) أثناء السير في ذات المسار نتيجة عدم ترك مسافة آمنة."
 
+    # 2. الرجوع إلى الخلف (المادة 54 - الفقرة 2)
     elif f1["reversing"] or f2["reversing"] or "بالرجوع" in norm_all or "رجوع للخلف" in norm_all:
         if f2["reversing"] or (f1["stopped"] and not f2["stopped"]):
             p1_fault, p2_fault = 0, 100
@@ -288,6 +248,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة ({fault_car}) التي قامت بعملية الرجوع للخلف دون التأكد من خلو الطريق المسؤولية الكاملة بنسبة (100%)، وتُعفى المركبة ({ok_car}) لسلامة موقفها النظامي (0%)."
         tech_summary = f"ثبت من المعاينة الفنية أن المركبة ({ok_car}) كانت في وضع نظامي سليم، بينما قامت المركبة ({fault_car}) بالرجوع إلى الخلف والاصطدام بها."
 
+    # 3. الانحراف أو تغيير المسار أو الدوران (المادة 50 - الفقرة 1)
     elif f1["swerving"] or f2["swerving"] or "انحراف" in norm_all or "تغيير مسار" in norm_all:
         if f2["swerving"] or (f1["stopped"] and not f2["stopped"]):
             p1_fault, p2_fault = 0, 100
@@ -301,6 +262,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة ({fault_car}) كامل المسؤولية النظامية بنسبة (100%) للانحراف أو تغيير المسار دون التأكد من خلو الطريق، وتعفى المركبة ({ok_car}) بنسبة (0%)."
         tech_summary = f"انحراف غير آمن من قِبل المركبة ({fault_car}) أدى لقطع مسار المركبة ({ok_car}) ووقوع الاصطدام."
 
+    # 4. التجاوز الخاطئ (المادة 57)
     elif f1["overtaking"] or f2["overtaking"] or "تجاوز خاطئ" in norm_all:
         if f2["overtaking"]:
             p1_fault, p2_fault = 0, 100
@@ -314,6 +276,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة ({fault_car}) المسؤولية الكاملة بنسبة (100%) للشروع في تجاوز غير آمن والتسبب المباشر في وقوع الحادث."
         tech_summary = f"قيام المركبة ({fault_car}) بالتجاوز الخاطئ في ظروف غير آمنة والاصطدام بالمركبة ({ok_car})."
 
+    # 5. عكس السير أو قطع الإشارة الحمراء (المادة 50/4 والمادة 68)
     elif f1["wrong_way"] or f2["wrong_way"] or f1["red_light"] or f2["red_light"] or "عكس السير" in norm_all or "قطع اشاره" in norm_all:
         if f2["wrong_way"] or f2["red_light"]:
             p1_fault, p2_fault = 0, 100
@@ -327,6 +290,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = f"تتحمل المركبة المخالفة ({fault_car}) كامل المسؤولية النظامية عن الحادث بنسبة (100%)، وتعفى المركبة ({ok_car}) بنسبة (0%)."
         tech_summary = f"ثبت ارتكاب المركبة ({fault_car}) لمخالفة مرورية جسيمة (قطع إشارة حمراء / عكس سير) تسببت في الحادث."
 
+    # 6. حوادث الدوار (المادة 56 - الفقرة 6)
     elif "دوار" in norm_all or "الدوار" in norm_all:
         p1_fault, p2_fault = 0, 100
         article_num = "المادة (56) - الفقرة (6) من نظام المرور السعودي (أولوية السير في الدوار)"
@@ -334,6 +298,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         application_text = "تتحمل المركبة الداخلة إلى الدوار دون إفساح المجال المسؤولية النظامية الكاملة (100%)."
         tech_summary = "حادث مروري في منطقة دوار نتيجة عدم مراعاة أولوية السير للمركبات المتحركة داخل الدوار."
 
+    # 7. حوادث التقاطعات (المادة 56 واللائحة 56/1 + المادة 60)
     elif "تقاطع" in norm_all:
         both_bumps = norm_all.count("مطب") >= 2
         p1_priority = f1["wider"] or f2["narrow"] or (f1["ns"] and f2["ew"])
@@ -349,7 +314,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         elif p2_priority and (both_bumps or (f2["front"] and f1["side"])):
             p1_fault, p2_fault = 75, 25
             article_num = "المادة (56) - اللائحة التنفيذية (56/1) والمادة (60/1) من نظام المرور السعودي"
-            article_text = "تكون أولوية المرور في التقاطعات غير المنظمة للمركبات السائرة في الطريق الرئيسي، فالطريق الأوسع، ثم للقادم من جهة اليمين، مع وجوب التهدئة وأخذ الحيطة والحذر التام عند الاقتراب من التقاطعات."
+            article_text = "تكون أولوية المرور في التقاطعات غير المنظمة للمركبات السائرة في الطريق الرئيسي، فالطريق الأوسع، ثم للقادم من جهة اليمين، مع وجوب التهدئة وأخذ الحيطة والحذر عند الاقتراب من التقاطعات."
             application_text = f"استناداً للمادة (56) والمادة (60)، تتحمل المركبة ({party1}) نسبة (75%) لدخولها التقاطع دون إعطاء الأفضلية النظامية، وتتحمل المركبة ({party2}) نسبة (25%) للاشتراك في الخطأ لعدم التهدئة الكافية عند التقاطع."
             tech_summary = f"المركبة الثانية ({party2}) تسير في المسار ذي الأفضلية النظامية واصطدمت بـ ({f2['damage']}) في ({f1['damage']}) للمركبة الأولى ({party1})."
 
@@ -363,7 +328,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
         elif p2_priority and not both_bumps:
             p1_fault, p2_fault = 100, 0
             article_num = "المادة (56) - الفقرة (2 و 4) والمادة (60) من نظام المرور السعودي"
-            article_text = "تكون أولوية المرور في التقاطعات للمركبات السائرة في الطريق الرئيسي أو الأوسع، ويجب على القادم من طريق فرعي أو أضيق التوقف التام والتأكد من خلو التقاطع قبل الدخول إليه."
+            article_text = "تكون أولوية المرور في التقاطعات للمركبات السائرة في الطريق الرئيسي أو الأوسع، ويجب على القادم من طريق فرعي أو أضيق التوقف التام وإفساح المجال."
             application_text = f"تتحمل المركبة ({party1}) كامل المسؤولية بنسبة (100%) لدخولها التقاطع دون إفساح المجال للمسار ذي الأفضلية."
             tech_summary = f"دخول المركبة ({party1}) أمام المركبة ({party2}) السائرة في الطريق الرئيسي/الأوسع."
 
@@ -418,17 +383,12 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
     return party1, party2, p1_fault, p2_fault, article_num, article_text, application_text, tech_summary, f1["damage"], f2["damage"], 2, False, []
 
 # ---------------------------------------------------------
-# واجهة المستخدم الرسمية مع الشعار التقني الفاخر
+# واجهة المستخدم الرسمية
 # ---------------------------------------------------------
-st.markdown(
-    """
-    <div class="tech-header">
-        <div class="tech-logo">🛡️ <span>حَسْم</span> الذكي للحوادث المرورية</div>
-        <div class="tech-subtitle">نظام التحليل الفني المتقدم وتقدير نسب المسؤولية النظامية</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.title("🚓 برنامج حَسْم الذكي")
+st.subheader("نظام التحليل الفني للحوادث المرورية وتقدير نسب المسؤولية")
+st.success("✅ محرك التحليل الذكي: تحديد دقيق لنسب المسؤولية وفق نظام المرور السعودي ولائحته التنفيذية")
+st.markdown("---")
 
 if "accident_input" not in st.session_state:
     st.session_state.accident_input = ""
@@ -442,8 +402,7 @@ accident_text = st.text_area(
     height=155
 )
 
-# لوحة تحكم متقدمة منسقة ونظيفة تماماً بدون أي رموز غريبة
-with st.expander("⚙️ خيارات التحليل المتقدم (اختياري - يترك على الوضع الآلي)"):
+with st.expander("⚙️ خيارات التحكم المتقدم للمحقق (اختياري - يترك على الوضع الآلي)"):
     col1, col2 = st.columns(2)
     with col1:
         manual_override = st.selectbox(
@@ -471,11 +430,8 @@ with st.expander("⚙️ خيارات التحليل المتقدم (اختيا�
             ]
         )
 
-btn_col1, btn_col2 = st.columns([3, 1])
-with btn_col1:
-    analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
-with btn_col2:
-    clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
+analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
+clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
 
 if analyze_btn:
     if accident_text.strip() == "":
@@ -489,6 +445,7 @@ if analyze_btn:
         with st.expander("أولاً: التحليل الفني للحادث 🔍", expanded=True):
             st.write(f"**خلاصة الفحص الميداني:** {tech_summary}")
             
+            # بناء جدول التتابع الذكي (يميز المركبة المندفعة قسراً باللون الأخضر 0% ويحمل التي خلفها المسؤولية)
             if is_chain and num_v > 2:
                 rows_html = '<tr><td>الطرف رقم (1)</td><td>المركبة الأمامية الأولى</td><td>المؤخرة الخلفية (المقدمة سليمة)</td><td><strong style="color:#4ade80;">0% (مُعفاة - مسار نظامي)</strong></td></tr>'
                 for i in range(2, min(num_v + 1, 25)):
@@ -537,7 +494,7 @@ if analyze_btn:
             f'<p style="color: #e2e8f0; font-size: 14px; margin: 4px 0;"><strong>📜 نص المادة:</strong> {article_text}</p>'
             f'</div>'
         )
-        st.markdown(green_box := green_html, unsafe_allow_html=True)
+        st.markdown(green_html, unsafe_allow_html=True)
         
         components.html(
             """
@@ -553,7 +510,7 @@ if analyze_btn:
                 text-align: center;
                 border-radius: 8px;
                 font-weight: bold;
-                font-family: 'Tajawal', sans-serif;
+                font-family: sans-serif;
                 font-size: 16px;
                 display: block;
                 width: 100%;
