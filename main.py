@@ -4,13 +4,14 @@ import re
 
 st.set_page_config(page_title="حسم الذكي للحوادث المرورية", layout="centered")
 
-# تنسيق تقني فاخر للخطوط والواجهة والطباعة بدون أي أخطاء برمجية
+# تنسيق تقني فاخر للخطوط والواجهة والطباعة بدون أي تداخل
 css_style = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
-.stApp { direction: rtl; text-align: right; font-family: 'Tajawal', sans-serif; }
+.stApp { direction: rtl; text-align: right; font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: #f8fafc; }
 p, div, h1, h2, h3, h4, span, label, textarea, li, th, td { text-align: right !important; direction: rtl !important; font-family: 'Tajawal', sans-serif !important; }
 
+/* تصميم الشعار التقني الفاخر */
 .tech-header {
    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
    border: 1px solid #38bdf8;
@@ -47,7 +48,6 @@ p, div, h1, h2, h3, h4, span, label, textarea, li, th, td { text-align: right !i
 """
 st.markdown(css_style, unsafe_allow_html=True)
 
-# توحيد الحروف وتحويل الأرقام الهندية (٥) إلى قياسية (5)
 def normalize_ar(text):
     arabic_nums = "٠١٢٣٤٥٦٧٨٩"
     english_nums = "0123456789"
@@ -419,7 +419,8 @@ accident_text = st.text_area(
     height=155
 )
 
-with st.expander("⚙️ خيارات التحكم المتقدم للمحقق (اختياري - يترك على الوضع الآلي)"):
+# لوحة تحكم متقدمة منسقة بعناية لتجنب أي تداخل
+with st.expander("⚙️ لوحة التحكم المتقدم للمحقق (اختياري - يترك على الوضع الآلي)"):
     col1, col2 = st.columns(2)
     with col1:
         manual_override = st.selectbox(
@@ -447,8 +448,12 @@ with st.expander("⚙️ خيارات التحكم المتقدم للمحقق (
             ]
         )
 
-analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
-clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
+# أزرار التحكم بتصميم تقني حديث متجاور
+btn_col1, btn_col2 = st.columns([3, 1])
+with btn_col1:
+    analyze_btn = st.button("🔍 تحليل الحادث وتوزيع النسب بدقة", use_container_width=True)
+with btn_col2:
+    clear_btn = st.button("🗑️ مسح", on_click=clear_text, use_container_width=True)
 
 if analyze_btn:
     if accident_text.strip() == "":
