@@ -4,48 +4,47 @@ import re
 
 st.set_page_config(page_title="حسم الذكي للحوادث المرورية", layout="centered")
 
-# تنسيق تقني فاخر للخطوط والواجهة والطباعة
-css_style = (
-    "<style>"
-    "@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');"
-    ".stApp { direction: rtl; text-align: right; font-family: 'Tajawal', sans-serif; }"
-    "p, div, h1, h2, h3, h4, span, label, textarea, li, th, td { text-align: right !important; direction: rtl !important; font-family: 'Tajawal', sans-serif !important; }"
-    
-    /* تصميم الشعار التقني الفاخر */
-    ".tech-header {"
-    "   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);"
-    "   border: 1px solid #38bdf8;"
-    "   padding: 24px;"
-    "   border-radius: 14px;"
-    "   text-align: center;"
-    "   margin-bottom: 20px;"
-    "   box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.15);"
-    "}"
-    ".tech-logo {"
-    "   font-size: 28px;"
-    "   font-weight: 900;"
-    "   color: #f8fafc;"
-    "   letter-spacing: -0.5px;"
-    "   margin-bottom: 6px;"
-    "}"
-    ".tech-logo span {"
-    "   color: #38bdf8;"
-    "   text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);"
-    "}"
-    ".tech-subtitle {"
-    "   color: #94a3b8;"
-    "   font-size: 14px;"
-    "   font-weight: 500;"
-    "}"
-    
-    ".law-box { background-color: #1e293b; border-right: 4px solid #38bdf8; padding: 16px; border-radius: 8px; margin: 12px 0; color: #f8fafc; line-height: 1.7; }"
-    ".green-box { background-color: #0d2e1e; border-right: 5px solid #00a859; padding: 20px; border-radius: 10px; margin-top: 15px; margin-bottom: 15px; }"
-    ".official-table { width: 100%; border-collapse: collapse; margin: 15px 0; background-color: #111827; border-radius: 8px; overflow: hidden; }"
-    ".official-table th { background-color: #1f2937; color: #38bdf8; padding: 10px; border: 1px solid #374151; }"
-    ".official-table td { padding: 10px; border: 1px solid #374151; color: #e5e7eb; }"
-    "@media print { .stButton, textarea, header, footer, .no-print { display: none !important; } }"
-    "</style>"
-)
+# تنسيق تقني فاخر للخطوط والواجهة والطباعة بدون أي أخطاء برمجية
+css_style = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+.stApp { direction: rtl; text-align: right; font-family: 'Tajawal', sans-serif; }
+p, div, h1, h2, h3, h4, span, label, textarea, li, th, td { text-align: right !important; direction: rtl !important; font-family: 'Tajawal', sans-serif !important; }
+
+.tech-header {
+   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+   border: 1px solid #38bdf8;
+   padding: 24px;
+   border-radius: 14px;
+   text-align: center;
+   margin-bottom: 20px;
+   box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.15);
+}
+.tech-logo {
+   font-size: 28px;
+   font-weight: 900;
+   color: #f8fafc;
+   letter-spacing: -0.5px;
+   margin-bottom: 6px;
+}
+.tech-logo span {
+   color: #38bdf8;
+   text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+}
+.tech-subtitle {
+   color: #94a3b8;
+   font-size: 14px;
+   font-weight: 500;
+}
+
+.law-box { background-color: #1e293b; border-right: 4px solid #38bdf8; padding: 16px; border-radius: 8px; margin: 12px 0; color: #f8fafc; line-height: 1.7; }
+.green-box { background-color: #0d2e1e; border-right: 5px solid #00a859; padding: 20px; border-radius: 10px; margin-top: 15px; margin-bottom: 15px; }
+.official-table { width: 100%; border-collapse: collapse; margin: 15px 0; background-color: #111827; border-radius: 8px; overflow: hidden; }
+.official-table th { background-color: #1f2937; color: #38bdf8; padding: 10px; border: 1px solid #374151; }
+.official-table td { padding: 10px; border: 1px solid #374151; color: #e5e7eb; }
+@media print { .stButton, textarea, header, footer, .no-print { display: none !important; } }
+</style>
+"""
 st.markdown(css_style, unsafe_allow_html=True)
 
 # توحيد الحروف وتحويل الأرقام الهندية (٥) إلى قياسية (5)
@@ -192,7 +191,7 @@ def analyze_accident(text, manual_mode="آلي", law_override="آلي"):
             party1 = "المركبة رقم (1) - الأمامية"
             party2 = f"المركبات اللاحقة من (2) إلى ({num_vehicles})" if num_vehicles > 2 else "المركبة رقم (2) - الخلفية"
             article_num = "المادة (55) - اللائحة التنفيذية (55/1) والمادة (60) من نظام المرور السعودي"
-            article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ، وفي حوادث التتابع يتحمل قائد كل مركبة لاحقة مسؤولية الاصطدام بمؤخرة المركبة التي أمامه."
+            article_text = "على قائد المركبة أن يترك بينه وبين المركبة التي أمامه مسافة كافية تمكنه من التوقف بأمان في حال تهدئة المركبة الأمامية لسرعتها أو توقفها المفاجئ، وفي حوادث التتابع يتحمل كل قائد مركبة لاحقة مسؤولية الاصطدام بمؤخرة المركبة التي أمامه."
             application_text = (
                 f"تُعفى المركبة الأمامية الأولى رقم (1) من المسؤولية تماماً بنسبة (0%) لسلامة مقدمتها وثبات مسارها، "
                 f"بينما تتحمل كل مركبة من المركبات اللاحقة (من المركبة 2 إلى المركبة {num_vehicles}) نسبة (100%) عن الأضرار التي أحدثتها بمقدمتها في مؤخرة المركبة التي أمامها مباشرة لعدم ترك المسافة النظامية الآمنة."
