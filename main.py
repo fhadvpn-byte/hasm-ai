@@ -346,6 +346,23 @@ def liability_rules(apply_chain_rules=False):
         "حتى لو أدخل المستخدم أن للطرفين أولوية بالخطأ. "
         "المحلل يحدد الأولوية الفعلية: من دخل التقاطع أولاً، ومن قدم من جهة اليمين، "
         "ومن كان على طريق رئيسي مقابل فرعي، ثم يوزّع النسب بدقة مثل 75%-25% أو 50%-50% أو 100%-0%.\n"
+        "- قواعد هندسية ملزمة لنقطة الاصطدام وأسبقية الدخول: "
+        "إياك أن تعكس دلالة نقطة الاصطدام. إذا اصطدمت مقدمة المركبة أ بجانب أو أبواب المركبة ب في منتصف التقاطع، "
+        "فهذا يعني هندسياً أن المركبة ب المصدومة في جانبها هي التي دخلت التقاطع أولاً وقطعت مسافة داخله، وليس العكس. "
+        "في التقاطعات المتكافئة غير المنظمة بإشارات أو رجل مرور، المركبة القادمة من يمين الأخرى لها أولوية المرور (المادة 50/5). "
+        "مثال: القادم من الغرب إلى الشرق يقع على يمين القادم من الشمال إلى الجنوب.\n"
+        "- توزيع نسب الاشتراك في حوادث التقاطعات: "
+        "نسبة 100% و0% تُطبَّق فقط إذا كان أحد الطرفين ملتزماً تماماً وله أولوية مطلقة "
+        "(إشارة خضراء، أو متوقف تماماً، أو يسير في طريق رئيسي بسرعة نظامية وانتباه تام) "
+        "والطرف الآخر قطع إشارة حمراء أو دخل من فرعي إلى رئيسي فجأة أو صدمه من الخلف. "
+        "نسبة 75% و25% تُطبَّق عند الاشتراك بالخطأ مع تفاوت الجسامة: "
+        "(أ) من خالف قاعدة الأولوية في التقاطع يتحمل 75%، والطرف الذي له أولوية المرور لكنه كان يقود بسرعة زائدة "
+        "أو لم يهدئ السرعة عند التقاطع أو لم يتخذ الحيطة لتفادي الحادث رغم قدرته يتحمل 25% استناداً للمادة 50/2. "
+        "(ب) في تقاطع متكافئ بلا إشارات: الطرف الذي لم يعطِ الأولوية للقادم من اليمين أو لمن دخل التقاطع قبله "
+        "وصدمه بمقدمته في جانبه يتحمل 75%، والطرف المصدوم في جانبه إذا دخل التقاطع دون التأكد التام من خلوه "
+        "وسلامة عبوره بعد المطب يتحمل 25%. "
+        "نسبة 50% و50% تُطبَّق إذا تساوى الطرفان تماماً في الخطأ والإهمال، "
+        "مثل تقاطع متكافئ بلا إشارات دخلا معاً في نفس اللحظة وتصادمت مقدمة المركبتين بسبب إهمال مشترك وعدم التهدئة.\n"
         "- اذكر رقم المادة والفقرة الفرعية الدقيقة (مثل 50/5 أو 50/2 أو 60 أو 61 أو 62) "
         "واقتبس معناها النظامي الفصيح. ممنوع ذكر أرقام صفحات المصدر "
         "وممنوع كتابة أي عبارة مثل (صفحات 50-80) بجانب المواد.\n"
@@ -852,7 +869,7 @@ def build_final_prompt(law_excerpts, facts, narrative, apply_chain_rules):
 1) اعتمد المواد 50 و50/2 و50/5 و60 و61 و62 من المرجع الثابت عند التقاطعات والأولوية والمسؤولية.
 2) نسب المسؤولية المسموحة فقط: {ratios}، ومجموعها بين الأطراف 100% دائماً.
 3) التركيبات المعتمدة مثل: 100% و0%، أو 75% و25%، أو 50% و50%.
-4) ممنوع رفض الحكم. حتى مع تعارض إدخال الأولوية من المستخدم، حدّد الأولوية الفعلية من الاتجاهات ونقطة الاصطدام (مثل صدم مقدمة الطرف الأول بالجانب الأيمن للطرف الثاني في منتصف التقاطع).
+4) ممنوع رفض الحكم. حتى مع تعارض إدخال الأولوية من المستخدم، حدّد الأولوية الفعلية من الاتجاهات ونقطة الاصطدام. إذا صدمت مقدمة طرف جانب/أبواب الطرف الآخر في منتصف التقاطع فالمصدوم جانبياً دخل أولاً. القادم من اليمين له الأولوية في التقاطع المتكافئ غير المنظم (50/5). لا تستخدم 100%-0% إلا لأولوية مطلقة والتزام تام؛ وفي الاشتراك مع تفاوت الجسامة استخدم 75%-25% (المخالف للأولوية 75% ومن لم يهدئ رغم أولويته 25% وفق 50/2)؛ وإذا تساوى الإهمال ودخل الطرفان معاً وتصادمت المقدمتان استخدم 50%-50%.
 5) لا تُعد رقم المحضر ولا اسم المحقق ولا قائمة الأطراف في النص.
 6) أسلوب رسمي ومباشر. الفقرات بلا > أو * أو --- . الجدول فقط بفواصل |.
 
@@ -923,6 +940,24 @@ def analyze_accident(law_text, facts, narrative, apply_chain_rules):
     return clean_report_text(report, strip_chain_terms=not apply_chain_rules)
 
 
+REPORT_STATE_KEYS = ("official_report", "official_facts", "apply_chain_rules")
+
+
+def widget_key(name):
+    return f"{name}_{st.session_state.get('reset_counter', 0)}"
+
+
+def clear_report_state():
+    for key in REPORT_STATE_KEYS:
+        st.session_state.pop(key, None)
+
+
+def start_new_case():
+    clear_report_state()
+    st.session_state.reset_counter = int(st.session_state.get("reset_counter", 0)) + 1
+    st.rerun()
+
+
 def collect_party_facts(party_count):
     facts = []
     columns = st.columns(party_count)
@@ -932,27 +967,27 @@ def collect_party_facts(party_count):
             role = st.selectbox(
                 f"صفة الطرف {index}",
                 ["سائق", "راكب", "مشاة", "دراجة", "مركبة ثقيلة", "أخرى"],
-                key=f"role_{index}",
+                key=widget_key(f"role_{index}"),
             )
-            vehicle = st.text_input(f"نوع المركبة {index}", key=f"veh_{index}")
-            plate = st.text_input(f"رقم اللوحة {index}", key=f"plate_{index}")
+            vehicle = st.text_input(f"نوع المركبة {index}", key=widget_key(f"veh_{index}"))
+            plate = st.text_input(f"رقم اللوحة {index}", key=widget_key(f"plate_{index}"))
             direction = st.selectbox(
                 f"الاتجاه {index}",
                 ["شمال", "جنوب", "شرق", "غرب", "غير محدد"],
-                key=f"dir_{index}",
+                key=widget_key(f"dir_{index}"),
             )
             lane = st.selectbox(
                 f"المسار {index}",
                 ["أيمن", "أوسط", "أيسر", "كتف الطريق", "غير محدد"],
-                key=f"lane_{index}",
+                key=widget_key(f"lane_{index}"),
             )
-            move = st.selectbox(f"المناورة {index}", MANEUVERS, key=f"move_{index}")
-            light = st.selectbox(f"الإشارة أمام الطرف {index}", SIGNALS, key=f"light_{index}")
-            priority = st.selectbox(f"الأولوية {index}", PRIORITIES, key=f"prio_{index}")
+            move = st.selectbox(f"المناورة {index}", MANEUVERS, key=widget_key(f"move_{index}"))
+            light = st.selectbox(f"الإشارة أمام الطرف {index}", SIGNALS, key=widget_key(f"light_{index}"))
+            priority = st.selectbox(f"الأولوية {index}", PRIORITIES, key=widget_key(f"prio_{index}"))
             speed = st.selectbox(
                 f"السرعة التقديرية {index}",
                 ["ضمن الحد", "تجاوز بسيط", "تجاوز كبير", "متوقف", "غير معلوم"],
-                key=f"speed_{index}",
+                key=widget_key(f"speed_{index}"),
             )
             facts.append(
                 f"الطرف {index}: الصفة={role}، المركبة={vehicle or 'غير مذكورة'}، "
@@ -1011,6 +1046,9 @@ def build_facts_block(
     return facts
 
 
+if "reset_counter" not in st.session_state:
+    st.session_state.reset_counter = 0
+
 pages_count, traffic_law_text = load_traffic_law()
 api_key, key_error = load_api_key()
 
@@ -1042,51 +1080,62 @@ with st.sidebar:
     st.caption("خيارات التحكم المتقدم لبناء محضر التحليل")
 
     st.subheader("بيانات المحضر")
-    investigator_name = st.text_input("اسم المحقق")
-    investigator_id = st.text_input("الرقم الوظيفي / العسكري")
-    report_no = st.text_input("رقم البلاغ / المحضر")
-    accident_date = st.date_input("تاريخ الحادث")
-    accident_time = st.time_input("وقت الحادث")
-    city = st.text_input("المدينة")
-    district = st.text_input("الحي / الشارع")
+    investigator_name = st.text_input("اسم المحقق", key=widget_key("investigator_name"))
+    investigator_id = st.text_input("الرقم الوظيفي / العسكري", key=widget_key("investigator_id"))
+    report_no = st.text_input("رقم البلاغ / المحضر", key=widget_key("report_no"))
+    accident_date = st.date_input("تاريخ الحادث", key=widget_key("accident_date"))
+    accident_time = st.time_input("وقت الحادث", key=widget_key("accident_time"))
+    city = st.text_input("المدينة", key=widget_key("city"))
+    district = st.text_input("الحي / الشارع", key=widget_key("district"))
 
     st.subheader("ظروف الموقع")
     road_type = st.selectbox(
         "نوع الموقع",
         ["طريق مستقيم", "تقاطع", "دوار", "إشارة ضوئية", "مخرج / مدخل", "موقف / Reverse", "أخرى"],
+        key=widget_key("road_type"),
     )
-    weather = st.selectbox("حالة الطقس", ["صحو", "أمطار", "ضباب", "غبار / عاصفة", "أخرى"])
-    road_status = st.selectbox("حالة الطريق", ["جاف", "مبلل", "زلِق", "أعمال صيانة", "حفر / عوائق"])
-    lighting = st.selectbox("الإنارة", ["نهار", "ليل مضاء", "ليل غير مضاء"])
-    injuries = st.selectbox("الإصابات", ["لا توجد", "إصابة بسيطة", "إصابة بليغة", "وفاة"])
-    damage = st.selectbox("الأضرار المادية", ["بسيطة", "متوسطة", "جسيمة"])
+    weather = st.selectbox("حالة الطقس", ["صحو", "أمطار", "ضباب", "غبار / عاصفة", "أخرى"], key=widget_key("weather"))
+    road_status = st.selectbox("حالة الطريق", ["جاف", "مبلل", "زلِق", "أعمال صيانة", "حفر / عوائق"], key=widget_key("road_status"))
+    lighting = st.selectbox("الإنارة", ["نهار", "ليل مضاء", "ليل غير مضاء"], key=widget_key("lighting"))
+    injuries = st.selectbox("الإصابات", ["لا توجد", "إصابة بسيطة", "إصابة بليغة", "وفاة"], key=widget_key("injuries"))
+    damage = st.selectbox("الأضرار المادية", ["بسيطة", "متوسطة", "جسيمة"], key=widget_key("damage"))
 
     st.subheader("ضوابط التحليل")
-    analysis_mode = st.selectbox("مستوى الصرامة", ["صارم نظامي", "مبدئي للمحقق", "مراجعة نهائية"])
-    cite_articles = st.checkbox("إلزام جلب رقم المادة ومقتطفها من نظام المرور ولائحته التنفيذية", value=True)
-    show_ratios_only = st.checkbox("قصر النسب على 0% / 25% / 50% / 75% / 100%", value=True)
-    include_sketch_notes = st.checkbox("إدخال ملاحظات الكروكي ضمن التحليل", value=True)
-    include_witnesses = st.checkbox("إدخال إفادة الشهود ضمن التحليل", value=False)
+    analysis_mode = st.selectbox("مستوى الصرامة", ["صارم نظامي", "مبدئي للمحقق", "مراجعة نهائية"], key=widget_key("analysis_mode"))
+    cite_articles = st.checkbox("إلزام جلب رقم المادة ومقتطفها من نظام المرور ولائحته التنفيذية", value=True, key=widget_key("cite_articles"))
+    show_ratios_only = st.checkbox("قصر النسب على 0% / 25% / 50% / 75% / 100%", value=True, key=widget_key("show_ratios_only"))
+    include_sketch_notes = st.checkbox("إدخال ملاحظات الكروكي ضمن التحليل", value=True, key=widget_key("include_sketch_notes"))
+    include_witnesses = st.checkbox("إدخال إفادة الشهود ضمن التحليل", value=False, key=widget_key("include_witnesses"))
 
 st.markdown("---")
 st.subheader("أطراف الحادث وخيارات المناورة")
-party_count = st.radio("عدد الأطراف", [2, 3, 4], horizontal=True, index=0)
+party_count = st.radio("عدد الأطراف", [2, 3, 4], horizontal=True, index=0, key=widget_key("party_count"))
 party_facts = collect_party_facts(party_count)
 
 st.markdown("---")
 left, right = st.columns(2)
 with left:
-    sketch_notes = st.text_area("ملاحظات الكروكي / الرسم الميداني", height=120)
+    sketch_notes = st.text_area("ملاحظات الكروكي / الرسم الميداني", height=120, key=widget_key("sketch_notes"))
 with right:
-    witness_notes = st.text_area("إفادات الشهود", height=120)
+    witness_notes = st.text_area("إفادات الشهود", height=120, key=widget_key("witness_notes"))
 
 accident_desc = st.text_area(
     "السرد الحر لتفاصيل الحادث (المركبات، الاتجاهات، الإشارات، التسلسل الزمني):",
     height=160,
+    key=widget_key("accident_desc"),
 )
-investigator_notes = st.text_area("ملاحظات المحقق الخاصة", height=90)
+investigator_notes = st.text_area("ملاحظات المحقق الخاصة", height=90, key=widget_key("investigator_notes"))
 
-if st.button("🔍 بدء التحليل النظامي"):
+start_col, reset_col = st.columns(2)
+with start_col:
+    start_clicked = st.button("🔍 بدء التحليل النظامي", type="primary", width="stretch")
+with reset_col:
+    reset_clicked = st.button("🗑️ مسح البيانات / حادث جديد", type="secondary", width="stretch")
+
+if reset_clicked:
+    start_new_case()
+
+if start_clicked:
     if not accident_desc.strip():
         st.warning("الرجاء كتابة تفاصيل الحادث أولاً.")
     elif key_error:
@@ -1094,6 +1143,7 @@ if st.button("🔍 بدء التحليل النظامي"):
     elif not traffic_law_text:
         st.warning("لا يمكن بدء التحليل دون نص نظام المرور المستخرج من traffic.pdf.")
     else:
+        clear_report_state()
         facts = build_facts_block(
             report_no,
             investigator_name,
@@ -1168,5 +1218,5 @@ if st.session_state.get("official_report"):
             data=report_download_html(cleaned_facts, cleaned_report),
             file_name="hasm-official-report.html",
             mime="text/html",
-            use_container_width=True,
+            width="stretch",
         )
