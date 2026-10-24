@@ -197,34 +197,22 @@ st.markdown(
       @media print {
         @page {
           size: A4;
-          margin: 12mm;
+          margin: 10mm !important;
         }
         html, body, .stApp, [data-testid="stAppViewContainer"],
         [data-testid="stMain"], [data-testid="stAppScrollToBottomContainer"],
-        .main, .block-container, [data-testid="stHeader"] {
+        .main, .block-container {
+          padding: 0 !important;
+          margin: 0 !important;
+          padding-top: 0 !important;
+          margin-top: 0 !important;
+          height: auto !important;
+          min-height: 0 !important;
+          overflow: visible !important;
           background: #ffffff !important;
           color: #000000 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-        }
-        body * {
-          visibility: hidden !important;
-        }
-        #official-print-report,
-        #official-print-report * {
-          visibility: visible !important;
-        }
-        #official-print-report {
-          position: absolute !important;
-          inset: 0 !important;
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border: none !important;
-          border-radius: 0 !important;
-          box-shadow: none !important;
-          background: #ffffff !important;
-          color: #000000 !important;
         }
         header, footer, [data-testid="stHeader"], [data-testid="stToolbar"],
         [data-testid="stDecoration"], [data-testid="stSidebar"],
@@ -236,8 +224,47 @@ st.markdown(
         [data-testid="stCheckbox"], [data-testid="stDateInput"],
         [data-testid="stTimeInput"], [data-testid="stAlert"],
         [data-testid="stNotification"], [data-testid="stWidgetLabel"],
-        [data-testid="stChatInput"], hr {
+        [data-testid="stChatInput"], hr,
+        [data-testid="stStatusWidget"], [data-testid="stDeployButton"] {
           display: none !important;
+          height: 0 !important;
+          min-height: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+        }
+        [data-testid="element-container"]:not(:has(#official-print-report)),
+        [data-testid="stElementContainer"]:not(:has(#official-print-report)),
+        [data-testid="stHorizontalBlock"]:not(:has(#official-print-report)),
+        [data-testid="stVerticalBlockBorderWrapper"]:not(:has(#official-print-report)) {
+          display: none !important;
+          height: 0 !important;
+          min-height: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        [data-testid="element-container"]:has(#official-print-report),
+        [data-testid="stElementContainer"]:has(#official-print-report),
+        [data-testid="stMarkdownContainer"]:has(#official-print-report),
+        [data-testid="stVerticalBlock"]:has(#official-print-report) {
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          height: auto !important;
+        }
+        #official-print-report {
+          display: block !important;
+          position: relative !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          background: #ffffff !important;
+          color: #000000 !important;
         }
         .print-document, .official-report, .print-brand,
         .print-document *, .official-report *, .print-brand *,
