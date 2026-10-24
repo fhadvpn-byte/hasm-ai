@@ -41,11 +41,9 @@ st.markdown(
       [data-testid="stSidebar"] .block-container {
         padding-top: 1.2rem;
       }
-      /* منع خروج النصوص من القائمة الجانبية نهائياً */
       [data-testid="stSidebar"] {
         overflow-x: hidden !important;
       }
-      /* إخفاء النصوص والمحتويات تماماً عند إغلاق القائمة بالسهم */
       [data-testid="stSidebar"][aria-expanded="false"] {
         width: 0px !important;
         min-width: 0px !important;
@@ -96,8 +94,8 @@ st.markdown(
         font-weight: 700;
       }
       .print-document {
-        background: #fff;
-        color: #122033;
+        background: #ffffff;
+        color: #111827;
         border: 1px solid #d7dde6;
         border-radius: 12px;
         padding: 1.3rem 1.4rem 1.5rem;
@@ -116,6 +114,7 @@ st.markdown(
       .print-brand h2 {
         margin: 0;
         font-size: 1.35rem;
+        color: #0f3d5e;
       }
       .print-brand p {
         margin: 0.2rem 0 0;
@@ -127,58 +126,137 @@ st.markdown(
         direction: rtl;
         font-family: Tahoma, Arial, sans-serif;
         font-size: 1.02rem;
-        color: #122033;
+        color: #111827;
       }
-      .official-report table, [data-testid="stTable"] table {
+      .print-document table,
+      .official-report table,
+      [data-testid="stTable"] table {
         width: 100%;
         border-collapse: collapse;
         margin: 0.8rem 0 1.1rem;
+        background: #ffffff !important;
       }
-      .official-report th, [data-testid="stTable"] th {
+      .print-document th,
+      .official-report th,
+      [data-testid="stTable"] th {
         background: #0f3d5e !important;
-        color: #fff !important;
+        color: #ffffff !important;
         font-weight: 700;
         padding: 10px 8px;
         border: 1px solid #0b2e47;
       }
-      .official-report td, [data-testid="stTable"] td {
+      .print-document td,
+      .official-report td,
+      [data-testid="stTable"] td,
+      .print-document td *,
+      .official-report td *,
+      [data-testid="stTable"] td * {
         border: 1px solid #c5d0db;
         padding: 9px 8px;
-        background: #fff;
+        background: #ffffff !important;
+        color: #111827 !important;
       }
-      .official-report tr:nth-child(even) td, [data-testid="stTable"] tbody tr:nth-child(even) td {
-        background: #f4f7fa;
+      .print-document tr:nth-child(even) td,
+      .official-report tr:nth-child(even) td,
+      [data-testid="stTable"] tbody tr:nth-child(even) td,
+      .print-document tr:nth-child(even) td *,
+      .official-report tr:nth-child(even) td *,
+      [data-testid="stTable"] tbody tr:nth-child(even) td * {
+        background: #f8f9fa !important;
+        color: #111827 !important;
+      }
+      [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has([data-testid="stDownloadButton"]) {
+        align-items: stretch !important;
+        gap: 0.75rem;
+      }
+      [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has([data-testid="stDownloadButton"]) [data-testid="stColumn"] {
+        display: flex !important;
+        align-items: stretch !important;
+      }
+      [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has([data-testid="stDownloadButton"]) iframe {
+        height: 48px !important;
+        min-height: 48px !important;
+        width: 100% !important;
+        border: 0 !important;
+      }
+      [data-testid="stDownloadButton"],
+      [data-testid="stDownloadButton"] > button,
+      .stDownloadButton,
+      .stDownloadButton > button {
+        width: 100% !important;
+        height: 48px !important;
+        min-height: 48px !important;
+        margin: 0 !important;
+        border-radius: 8px !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        background: #0f3d5e !important;
+        color: #ffffff !important;
+        border: 1px solid #0b2e47 !important;
       }
       @media print {
+        @page {
+          size: A4;
+          margin: 12mm;
+        }
+        html, body, .stApp, [data-testid="stAppViewContainer"],
+        [data-testid="stMain"], [data-testid="stAppScrollToBottomContainer"],
+        .main, .block-container, [data-testid="stHeader"] {
+          background: #ffffff !important;
+          color: #000000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        body * {
+          visibility: hidden !important;
+        }
+        #official-print-report,
+        #official-print-report * {
+          visibility: visible !important;
+        }
+        #official-print-report {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+        }
         header, footer, [data-testid="stHeader"], [data-testid="stToolbar"],
         [data-testid="stDecoration"], [data-testid="stSidebar"],
         [data-testid="stSidebarCollapsedControl"], .hasm-hero,
         .no-print, .stDownloadButton, [data-testid="stDownloadButton"],
-        .stButton, [data-testid="stChatInput"], iframe,
+        .stButton, iframe, [data-testid="stBottomBlockContainer"],
         [data-testid="stTextInput"], [data-testid="stTextArea"],
         [data-testid="stSelectbox"], [data-testid="stRadio"],
         [data-testid="stCheckbox"], [data-testid="stDateInput"],
         [data-testid="stTimeInput"], [data-testid="stAlert"],
-        [data-testid="stNotification"], [data-testid="stWidgetLabel"] {
+        [data-testid="stNotification"], [data-testid="stWidgetLabel"],
+        [data-testid="stChatInput"], hr {
           display: none !important;
         }
-        .block-container {
-          padding: 0 !important;
-          max-width: 100% !important;
+        .print-document, .official-report, .print-brand,
+        .print-document *, .official-report *, .print-brand *,
+        table, thead, tbody, tr, th, td {
+          background: #ffffff !important;
+          color: #000000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
-        .print-document, .official-report, .print-case-facts,
-        [data-testid="stTable"], [data-testid="stDataFrame"] {
-          display: block !important;
-          color: #000 !important;
-          background: #fff !important;
-          border: none !important;
-          box-shadow: none !important;
+        .print-document th, .official-report th, th {
+          background: #ffffff !important;
+          color: #000000 !important;
+          border: 1px solid #000000 !important;
         }
-        [data-testid="stTable"] th {
-          background: #0f3d5e !important;
-          color: #fff !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
+        .print-document td, .official-report td, td,
+        .print-document td *, .official-report td *, td * {
+          background: #ffffff !important;
+          color: #000000 !important;
+          border: 1px solid #000000 !important;
         }
       }
     </style>
@@ -205,6 +283,19 @@ LAW_KEYWORDS = (
     "يسار", "يمين", "حمراء", "خضراء", "كتف", "مخرج", "مدخل", "عكس",
     "مركبة", "سائق", "تصادم", "اصطدام", "مادة",
 )
+CHAIN_HINTS = (
+    "تتابع",
+    "رتل",
+    "دفع قسري",
+    "اندفعت قسرا",
+    "اندفعت قسري",
+    "اصطدام متسلسل",
+    "سلسلة اصطدام",
+    "مركبات متتالية",
+    "عدة مركبات خلف",
+    "صدمتها من الخلف فاندفعت",
+    "اصطدمت من الخلف واندفعت",
+)
 MANEUVERS = [
     "سير مستقيم",
     "انعطاف يمين",
@@ -220,21 +311,41 @@ MANEUVERS = [
 ]
 SIGNALS = ["لا توجد إشارة", "خضراء", "صفراء", "حمراء", "وميض", "غير معلوم"]
 PRIORITIES = ["له أولوية", "عليه أولوية للغير", "غير محدد"]
-SYSTEM_LIABILITY_RULES = (
-    "أنت خبير تحقيق حوادث مرورية. التزم حرفياً وبصرامة تامة بالنصوص المستخلصة "
-    f"من صفحات نظام المرور ولائحته التنفيذية (الصفحات {LAW_PAGE_START} إلى {LAW_PAGE_END}) فقط. "
-    "ممنوع أي اجتهاد أو معرفة عامة خارج هذا النص.\n"
-    f"- النسب القياسية المعتمدة حصرياً: {' / '.join(APPROVED_RATIOS)}. "
-    "مجموع نسب أطراف الحادث يجب أن يساوي 100% دائماً.\n"
-    "- حوادث التتابع: المركبة الأولى في مقدمة الرتل التي لم تصدم مركبة أمامها ومقدمتها سليمة "
-    "نسبة خطئها 0% دائماً.\n"
-    "- الدفع القسري: إذا كانت مركبة متوقفة أو تترك مسافة آمنة واندفعت قسراً بسبب صدمة خلفية قوية "
-    "لتصدم من أمامها، تُعفى من مسؤولية الصدم الأمامي (0% عن الصدم الأمامي)، "
-    "وتتحمل المركبة الصادمة من الخلف المسؤولية الكاملة.\n"
-    "- ألزم ذكر رقم المادة والفقرة الفرعية الدقيقة كما ترد في الصفحات 50-80 "
-    "(مثل 50/2/4 أو 60/1) مع اقتباس النص النظامي قرين كل نسبة خطأ.\n"
-    "لا تذكر أسماء ملفات أو نماذج برمجية في التقرير."
-)
+
+
+def liability_rules(apply_chain_rules=False):
+    text = (
+        "أنت خبير تحقيق حوادث مرورية. التزم حرفياً وبصرامة تامة بالنصوص النظامية "
+        "المستخلصة من نظام المرور السعودي ولائحته التنفيذية فقط. "
+        "ممنوع أي اجتهاد أو معرفة عامة خارج هذا النص.\n"
+        f"- النسب القياسية المعتمدة حصرياً: {' / '.join(APPROVED_RATIOS)}. "
+        "مجموع نسب أطراف الحادث يجب أن يساوي 100% دائماً.\n"
+        "- اذكر رقم المادة والفقرة الفرعية الدقيقة (مثل 50/2/4 أو 60/1) "
+        "واقتبس معناها النظامي قرين كل نسبة خطأ. ممنوع ذكر أرقام صفحات المصدر "
+        "وممنوع كتابة أي عبارة مثل (صفحات 50-80) بجانب المواد أو في أي موضع بالتقرير.\n"
+        "- النصوص المستخرجة من ملف PDF قد تكون مكسّرة أو معكوسة أو مشوهة. "
+        "ممنوع نسخها كما هي. أعد صياغة نص المادة بلغة عربية فصيحة سليمة ومرتبة 100% "
+        "مع الإبقاء على رقم المادة والفقرة.\n"
+        "- ممنوع استخدام رموز التنسيق أو علامات Markdown داخل التقرير، "
+        "بما في ذلك الرموز > و * و --- . التقرير نص رسمي نظيف فقط.\n"
+        "- لا تذكر أسماء ملفات أو نماذج برمجية في التقرير.\n"
+    )
+    if apply_chain_rules:
+        text += (
+            "- هذا المحضر حادث تتابع لعدة مركبات، فطبّق القاعدتين التاليتين فقط دون تسميتهما بعناوين إنشائية: "
+            "المركبة الأولى في مقدمة الرتل التي لم تصدم مركبة أمامها ومقدمتها سليمة نسبة خطئها 0% دائماً. "
+            "إذا كانت مركبة متوقفة أو تترك مسافة آمنة واندفعت قسراً بسبب صدمة خلفية قوية لتصدم من أمامها، "
+            "تُعفى من مسؤولية الصدم الأمامي (0% عن الصدم الأمامي)، وتتحمل المركبة الصادمة من الخلف المسؤولية الكاملة.\n"
+        )
+    else:
+        text += (
+            "- هذا الحادث ليس حادث تتابع لعدة مركبات. "
+            "ممنوع منعاً باتاً تطبيق قواعد حوادث التتابع أو الدفع القسري، "
+            "وممنوع الإشارة إليهما أو كتابة أي ملاحظة عنهما، "
+            "وممنوع ذكر كلمتي «تتابع» أو «دفع قسري» في أي موضع من التقرير. "
+            "حلّل الحادث وفق نوعه الفعلي فقط (تقاطع، دوران، رجوع للخلف، تغيير مسار، إشارة، أو غيرها).\n"
+        )
+    return text
 
 
 def load_api_key():
@@ -333,11 +444,39 @@ def groq_chat(client, messages, temperature=0.1, max_tokens=2048, allow_empty=Fa
     raise RuntimeError(describe_error(last_error or RuntimeError(f"تعذر الاتصال بالنموذج {GROQ_MODEL}.")))
 
 
-def clean_report_text(text):
+def is_chain_collision(facts, narrative, party_count):
+    blob = f"{facts}\n{narrative}"
+    if any(hint in blob for hint in CHAIN_HINTS):
+        return True
+    rear_hit = any(token in blob for token in ("من الخلف", "اصطدام خلفي", "صدمة خلفية", "صدمتها من الخلف"))
+    return party_count >= 3 and rear_hit
+
+
+def clean_report_text(text, strip_chain_terms=False):
     cleaned = str(text or "")
     cleaned = re.sub(r"(?i)<br\s*/?>", "\n", cleaned)
+    cleaned = re.sub(r"\(?\s*صفحات?\s*50\s*[-–—/إلى]+\s*80\s*\)?", "", cleaned)
+    cleaned = re.sub(r"\(?\s*الصفحات\s*\d+\s*[-–—/إلى]+\s*\d+\s*\)?", "", cleaned)
     cleaned = cleaned.replace("**", "")
+    cleaned = cleaned.replace("__", "")
     cleaned = re.sub(r"(?i)traffic\.pdf", "نظام المرور ولائحته التنفيذية", cleaned)
+    if strip_chain_terms:
+        cleaned = re.sub(r"الدفع\s*القسري", "", cleaned)
+        cleaned = re.sub(r"دفع\s*قسري", "", cleaned)
+        cleaned = re.sub(r"حوادث\s*التتابع", "", cleaned)
+        cleaned = re.sub(r"حادث\s*التتابع", "", cleaned)
+        cleaned = re.sub(r"قاعدة\s*التتابع", "", cleaned)
+        cleaned = re.sub(r"التتابع", "", cleaned)
+    lines = []
+    for line in cleaned.splitlines():
+        if looks_like_table_line(line):
+            lines.append(line.replace("*", ""))
+            continue
+        line = re.sub(r"^\s*>+\s?", "", line)
+        line = line.replace(">", "").replace("*", "")
+        line = re.sub(r"-{3,}", "", line)
+        lines.append(line)
+    cleaned = "\n".join(lines)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
@@ -455,18 +594,18 @@ def html_table(frame):
 def text_to_html(text):
     parts = []
     for paragraph in clean_report_text(text).split("\n"):
-        raw = paragraph.strip()
+        raw = paragraph.strip().strip("#").strip()
         if not raw:
             continue
         heading = re.sub(r"^#{1,6}\s*", "", raw)
-        if raw.startswith("#") or raw.endswith(":"):
+        if paragraph.strip().startswith("#") or raw.endswith(":"):
             parts.append(f"<h3>{html.escape(heading)}</h3>")
         else:
             parts.append(f"<p>{html.escape(raw)}</p>")
     return "".join(parts)
 
 
-def report_download_html(facts, report):
+def official_report_body(facts, report):
     facts_table = html_table(facts_frame(facts))
     report_parts = []
     for kind, payload in parse_report_blocks(report):
@@ -475,6 +614,20 @@ def report_download_html(facts, report):
         else:
             report_parts.append(text_to_html(payload))
     report_html = "".join(report_parts) or f"<p>{html.escape(clean_report_text(report))}</p>"
+    return f"""
+      <div class="print-brand">
+        <h2>حسم الذكي للحوادث المرورية</h2>
+        <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
+      </div>
+      <h3>بيانات المحضر</h3>
+      {facts_table}
+      <h3>التقرير النظامي</h3>
+      <div class="official-report">{report_html}</div>
+    """
+
+
+def report_download_html(facts, report):
+    body = official_report_body(facts, report)
     return f"""<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -486,70 +639,58 @@ def report_download_html(facts, report):
       font-family: Tahoma, Arial, sans-serif;
       direction: rtl;
       text-align: right;
-      color: #122033;
+      color: #000000;
+      background: #ffffff;
       line-height: 1.85;
       margin: 0;
       padding: 8mm;
     }}
-    .brand {{
+    .print-brand {{
       border-bottom: 3px solid #0f3d5e;
       padding-bottom: 10px;
       margin-bottom: 18px;
     }}
-    h1 {{ font-size: 22px; margin: 0; color: #0f3d5e; }}
-    h2, h3 {{ color: #0f3d5e; margin: 16px 0 8px; }}
-    p {{ margin: 0 0 10px; }}
-    table {{ width: 100%; border-collapse: collapse; margin: 10px 0 16px; }}
-    th {{ background: #0f3d5e; color: #fff; padding: 8px; border: 1px solid #0b2e47; }}
-    td {{ border: 1px solid #c5d0db; padding: 8px; }}
-    tr:nth-child(even) td {{ background: #f4f7fa; }}
+    h1, h2, h3 {{ color: #0f3d5e; margin: 16px 0 8px; }}
+    .print-brand h2 {{ font-size: 22px; margin: 0; color: #0f3d5e; }}
+    p {{ margin: 0 0 10px; color: #111827; }}
+    table {{ width: 100%; border-collapse: collapse; margin: 10px 0 16px; background: #ffffff; }}
+    th {{ background: #0f3d5e; color: #ffffff; padding: 8px; border: 1px solid #0b2e47; }}
+    td {{
+      border: 1px solid #c5d0db;
+      padding: 8px;
+      background: #ffffff;
+      color: #111827 !important;
+    }}
+    tr:nth-child(even) td {{
+      background: #f8f9fa;
+      color: #111827 !important;
+    }}
     .footer {{ margin-top: 28px; font-size: 12px; color: #4a5b6b; }}
+    @media print {{
+      html, body, table, th, td, p, h1, h2, h3, div {{
+        background: #ffffff !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }}
+      th, td {{ border: 1px solid #000000 !important; }}
+    }}
   </style>
 </head>
 <body>
-  <div class="brand">
-    <h1>حسم الذكي للحوادث المرورية</h1>
-    <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
-  </div>
-  <h2>بيانات المحضر</h2>
-  {facts_table}
-  <h2>التقرير النظامي</h2>
-  {report_html}
-  <div class="footer">أُعد وفق صفحات تنظيمات السير والحوادث (50-80) من نظام المرور ولائحته التنفيذية. النسب المعتمدة فقط: 0٪، 25٪، 50٪، 75٪، 100٪.</div>
+  {body}
+  <div class="footer">أُعد وفق نظام المرور السعودي ولائحته التنفيذية. النسب المعتمدة فقط: 0٪، 25٪، 50٪، 75٪، 100٪.</div>
 </body>
 </html>
 """
 
 
 def render_official_report(facts, report):
-    st.markdown('<div class="print-document">', unsafe_allow_html=True)
+    body = official_report_body(facts, report)
     st.markdown(
-        """
-        <div class="print-brand">
-          <h2>حسم الذكي للحوادث المرورية</h2>
-          <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
-        </div>
-        """,
+        f'<div class="print-document" id="official-print-report">{body}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown("#### بيانات المحضر")
-    st.table(facts_frame(facts))
-    st.markdown("#### التقرير النظامي")
-    blocks = parse_report_blocks(report)
-    if not blocks:
-        st.markdown(
-            f'<div class="official-report">{html.escape(clean_report_text(report)).replace(chr(10), "<br>")}</div>',
-            unsafe_allow_html=True,
-        )
-    for kind, payload in blocks:
-        if kind == "table":
-            st.table(payload)
-        else:
-            st.markdown(
-                f'<div class="official-report">{text_to_html(payload)}</div>',
-                unsafe_allow_html=True,
-            )
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -619,14 +760,15 @@ def select_chunks(chunks, query, limit=MAX_MAP_CHUNKS):
     return selected or [chunk[:CHUNK_SIZE] for _, _, chunk in ranked[:limit]]
 
 
-def extract_articles(client, chunk, query):
+def extract_articles(client, chunk, query, apply_chain_rules):
     messages = [
         {
             "role": "system",
             "content": (
-                f"{SYSTEM_LIABILITY_RULES}\n"
+                f"{liability_rules(apply_chain_rules)}\n"
                 "في هذه المرحلة استخرج فقط المواد والفقرات ذات الصلة من الجزء المرفق "
-                "(الصفحات 50-80). إن لم توجد مادة منطبقة فاكتب: لا يوجد."
+                "من نظام المرور ولائحته التنفيذية. أعد صياغة النص بعربية فصيحة ولا تنسخ النص المشوه. "
+                "إن لم توجد مادة منطبقة فاكتب: لا يوجد."
             ),
         },
         {
@@ -651,21 +793,20 @@ def extract_articles(client, chunk, query):
         return ""
 
 
-def build_final_prompt(law_excerpts, facts, narrative):
+def build_final_prompt(law_excerpts, facts, narrative, apply_chain_rules):
     ratios = " / ".join(APPROVED_RATIOS)
-    return f"""{SYSTEM_LIABILITY_RULES}
+    return f"""{liability_rules(apply_chain_rules)}
 
 المهمة:
-حلّل الحادث اعتماداً على وقائع المحقق والمواد المجمّعة حصرياً من الصفحات {LAW_PAGE_START} إلى {LAW_PAGE_END} من نظام المرور ولائحته التنفيذية.
+حلّل الحادث اعتماداً على وقائع المحقق والمواد المجمّعة حصرياً من نظام المرور السعودي ولائحته التنفيذية.
 
 قواعد ملزمة إضافية:
-1) ممنوع الاجتهاد خارج النص المستخلص من الصفحات {LAW_PAGE_START}-{LAW_PAGE_END}.
+1) ممنوع الاجتهاد خارج النص النظامي المستخلص.
 2) نسب المسؤولية المسموحة فقط: {ratios}، ومجموعها بين الأطراف 100% دائماً.
 3) التركيبات المعتمدة مثل: 100%، أو 75% و25%، أو 50% و50%، أو 0% مع تحمل طرف آخر 100%.
-4) اذكر رقم المادة والفقرة الفرعية الدقيقة (مثل 50/2/4 أو 60/1) واقتبس النص النظامي قرين كل نسبة.
-5) طبق قاعدة التتابع وقاعدة الدفع القسري حرفياً عند انطباق الوقائع.
-6) إذا نقصت الوقائع، بيّن النقص ولا تخترع مادة أو نسبة.
-7) أسلوب رسمي ومباشر.
+4) اذكر رقم المادة والفقرة الفرعية الدقيقة (مثل 50/2/4 أو 60/1) بصياغة عربية فصيحة للنص، دون ذكر صفحات المصدر.
+5) إذا نقصت الوقائع، بيّن النقص ولا تخترع مادة أو نسبة.
+6) أسلوب رسمي ومباشر بلا رموز Markdown وبلا > أو * أو ---.
 
 صيغة التقرير:
 - بيانات المحضر والوقائع
@@ -675,21 +816,19 @@ def build_final_prompt(law_excerpts, facts, narrative):
 - الخلاصة النظامية
 
 المواد المستخرجة من نظام المرور ولائحته التنفيذية:
----
+
 {law_excerpts}
----
 
 بيانات المحقق:
----
+
 {facts}
----
 
 السرد الحر:
 {narrative}
 """
 
 
-def analyze_accident(law_text, facts, narrative):
+def analyze_accident(law_text, facts, narrative, apply_chain_rules):
     client = groq_client()
     chunks = cached_chunks(law_text)
     if not chunks:
@@ -704,7 +843,7 @@ def analyze_accident(law_text, facts, narrative):
     for index, chunk in enumerate(selected, start=1):
         progress.progress(index / total, text=f"معالجة الجزء {index} من {len(selected)}")
         try:
-            excerpt = extract_articles(client, chunk, query) or ""
+            excerpt = extract_articles(client, chunk, query, apply_chain_rules) or ""
         except Exception:
             excerpt = ""
         compact = excerpt.strip()
@@ -719,13 +858,13 @@ def analyze_accident(law_text, facts, narrative):
     messages = [
         {
             "role": "system",
-            "content": SYSTEM_LIABILITY_RULES,
+            "content": liability_rules(apply_chain_rules),
         },
-        {"role": "user", "content": build_final_prompt(law_excerpts, facts, narrative)},
+        {"role": "user", "content": build_final_prompt(law_excerpts, facts, narrative, apply_chain_rules)},
     ]
     report = groq_chat(client, messages, temperature=0.1, max_tokens=2048)
     progress.empty()
-    return report
+    return clean_report_text(report, strip_chain_terms=not apply_chain_rules)
 
 
 def collect_party_facts(party_count):
@@ -833,10 +972,7 @@ st.markdown(
 )
 
 if pages_count > 0 and traffic_law_text:
-    st.success(
-        f"✅ تم تحميل صفحات تنظيمات السير والحوادث (الصفحات {LAW_PAGE_START} - {LAW_PAGE_END}) "
-        f"وعددها {pages_count} صفحة"
-    )
+    st.success("✅ تم ربط النظام بنجاح (مرتبط بنظام المرور السعودي ولائحته التنفيذية)")
 elif pages_count > 0:
     st.error("❌ تم العثور على traffic.pdf لكن تعذر استخراج النص منه.")
 else:
@@ -926,30 +1062,50 @@ if st.button("🔍 بدء التحليل النظامي"):
             witness_notes,
             investigator_notes,
         )
+        apply_chain_rules = is_chain_collision(facts, accident_desc, party_count)
         try:
-            report = analyze_accident(traffic_law_text, facts, accident_desc)
-            st.session_state["official_report"] = clean_report_text(report)
+            report = analyze_accident(traffic_law_text, facts, accident_desc, apply_chain_rules)
+            st.session_state["official_report"] = report
             st.session_state["official_facts"] = clean_report_text(facts)
+            st.session_state["apply_chain_rules"] = apply_chain_rules
         except Exception as error:
             st.error(f"فشل التحليل دون إيقاف التطبيق. السبب الحقيقي: {describe_error(error)}")
 
 if st.session_state.get("official_report"):
-    cleaned_report = st.session_state["official_report"]
+    cleaned_report = clean_report_text(
+        st.session_state["official_report"],
+        strip_chain_terms=not st.session_state.get("apply_chain_rules", False),
+    )
     cleaned_facts = st.session_state.get("official_facts", "")
     render_official_report(cleaned_facts, cleaned_report)
     print_col, save_col = st.columns(2)
     with print_col:
-        st.markdown('<div class="no-print">', unsafe_allow_html=True)
         components.html(
             """
-            <button onclick="window.parent.print();"
-                    style="width:100%;padding:11px 14px;font-size:16px;font-weight:700;cursor:pointer;border-radius:8px;">
-              🖨️ طباعة التقرير الرسمي
-            </button>
+            <style>
+              html, body { margin: 0; padding: 0; background: transparent; }
+              button {
+                display: block;
+                width: 100%;
+                height: 48px;
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                font-size: 16px;
+                font-weight: 700;
+                cursor: pointer;
+                border: 1px solid #0b2e47;
+                border-radius: 8px;
+                background: #0f3d5e;
+                color: #ffffff;
+                font-family: Tahoma, Arial, sans-serif;
+              }
+            </style>
+            <button onclick="window.parent.print();">🖨️ طباعة التقرير الرسمي</button>
             """,
-            height=58,
+            height=48,
+            scrolling=False,
         )
-        st.markdown("</div>", unsafe_allow_html=True)
     with save_col:
         st.download_button(
             "💾 حفظ وتحميل التقرير",
