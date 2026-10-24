@@ -267,23 +267,35 @@ st.markdown(
           color: #000000 !important;
         }
         .print-document, .official-report, .print-brand,
-        .print-document *, .official-report *, .print-brand *,
-        table, thead, tbody, tr, th, td {
+        .print-document p, .official-report p, .print-brand p,
+        .print-document h2, .print-document h3, .official-report h3 {
           background: #ffffff !important;
           color: #000000 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        .print-document th, .official-report th, th {
-          background: #ffffff !important;
-          color: #000000 !important;
-          border: 1px solid #000000 !important;
+        table th, table thead tr, .report-table th,
+        .print-document th, .official-report th,
+        #official-print-report th, #official-print-report thead tr {
+          background-color: #0f3d68 !important;
+          color: #ffffff !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
-        .print-document td, .official-report td, td,
-        .print-document td *, .official-report td *, td * {
-          background: #ffffff !important;
-          color: #000000 !important;
-          border: 1px solid #000000 !important;
+        table td, .report-table td, .print-document td, .official-report td,
+        #official-print-report td {
+          background-color: #ffffff !important;
+          color: #111827 !important;
+          border: 1px solid #cbd5e1 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        table tr:nth-child(even) td,
+        .report-table tr:nth-child(even) td,
+        .print-document tr:nth-child(even) td,
+        .official-report tr:nth-child(even) td,
+        #official-print-report tr:nth-child(even) td {
+          background-color: #f8fafc !important;
         }
       }
     </style>
@@ -679,7 +691,7 @@ def html_table(frame):
         cells = "".join(f"<td>{html.escape(str(value))}</td>" for value in row.tolist())
         body_rows.append(f"<tr>{cells}</tr>")
     return (
-        "<table><thead><tr>"
+        '<table class="report-table"><thead><tr>'
         + head
         + "</tr></thead><tbody>"
         + "".join(body_rows)
@@ -763,13 +775,26 @@ def report_download_html(facts, report):
     }}
     .footer {{ margin-top: 28px; font-size: 12px; color: #4a5b6b; }}
     @media print {{
-      html, body, table, th, td, p, h1, h2, h3, div {{
+      html, body, p, h1, h2, h3, div {{
         background: #ffffff !important;
         color: #000000 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }}
-      th, td {{ border: 1px solid #000000 !important; }}
+      table th, table thead tr, .report-table th {{
+        background-color: #0f3d68 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }}
+      table td, .report-table td {{
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #cbd5e1 !important;
+      }}
+      table tr:nth-child(even) td, .report-table tr:nth-child(even) td {{
+        background-color: #f8fafc !important;
+      }}
     }}
   </style>
 </head>
