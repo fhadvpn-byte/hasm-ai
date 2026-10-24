@@ -2,6 +2,7 @@ import html
 import re
 import time
 
+import pandas as pd
 import PyPDF2
 import streamlit as st
 import streamlit.components.v1 as components
@@ -39,6 +40,21 @@ st.markdown(
       }
       [data-testid="stSidebar"] .block-container {
         padding-top: 1.2rem;
+      }
+      /* منع خروج النصوص من القائمة الجانبية نهائياً */
+      [data-testid="stSidebar"] {
+        overflow-x: hidden !important;
+      }
+      /* إخفاء النصوص والمحتويات تماماً عند إغلاق القائمة بالسهم */
+      [data-testid="stSidebar"][aria-expanded="false"] {
+        width: 0px !important;
+        min-width: 0px !important;
+        overflow: hidden !important;
+      }
+      [data-testid="stSidebar"][aria-expanded="false"] > div {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
       }
       .hasm-hero {
         display: flex;
@@ -79,19 +95,59 @@ st.markdown(
         width: 100%;
         font-weight: 700;
       }
+      .print-document {
+        background: #fff;
+        color: #122033;
+        border: 1px solid #d7dde6;
+        border-radius: 12px;
+        padding: 1.3rem 1.4rem 1.5rem;
+        margin: 0.4rem 0 1rem;
+      }
+      .print-document h2, .print-document h3, .print-document h4 {
+        color: #0f3d5e;
+        font-family: Tahoma, Arial, sans-serif;
+        margin: 1rem 0 0.45rem;
+      }
+      .print-brand {
+        border-bottom: 3px solid #0f3d5e;
+        padding-bottom: 0.7rem;
+        margin-bottom: 1rem;
+      }
+      .print-brand h2 {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+      .print-brand p {
+        margin: 0.2rem 0 0;
+        color: #4a5b6b;
+      }
       .official-report {
-        line-height: 1.85;
+        line-height: 1.9;
         text-align: right;
         direction: rtl;
+        font-family: Tahoma, Arial, sans-serif;
+        font-size: 1.02rem;
+        color: #122033;
       }
-      .official-report table {
+      .official-report table, [data-testid="stTable"] table {
         width: 100%;
         border-collapse: collapse;
-        margin: 0.8rem 0;
+        margin: 0.8rem 0 1.1rem;
       }
-      .official-report table, .official-report th, .official-report td {
-        border: 1px solid rgba(160, 180, 200, 0.35);
-        padding: 8px;
+      .official-report th, [data-testid="stTable"] th {
+        background: #0f3d5e !important;
+        color: #fff !important;
+        font-weight: 700;
+        padding: 10px 8px;
+        border: 1px solid #0b2e47;
+      }
+      .official-report td, [data-testid="stTable"] td {
+        border: 1px solid #c5d0db;
+        padding: 9px 8px;
+        background: #fff;
+      }
+      .official-report tr:nth-child(even) td, [data-testid="stTable"] tbody tr:nth-child(even) td {
+        background: #f4f7fa;
       }
       @media print {
         header, footer, [data-testid="stHeader"], [data-testid="stToolbar"],
@@ -110,9 +166,19 @@ st.markdown(
           padding: 0 !important;
           max-width: 100% !important;
         }
-        .official-report, .print-case-facts {
+        .print-document, .official-report, .print-case-facts,
+        [data-testid="stTable"], [data-testid="stDataFrame"] {
           display: block !important;
           color: #000 !important;
+          background: #fff !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        [data-testid="stTable"] th {
+          background: #0f3d5e !important;
+          color: #fff !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
       }
     </style>
@@ -252,7 +318,7 @@ def groq_chat(client, messages, temperature=0.1, max_tokens=2048, allow_empty=Fa
 
 def clean_report_text(text):
     cleaned = str(text or "")
-    cleaned = re.sub(r"(?i)<br\s*/?>", "، ", cleaned)
+    cleaned = re.sub(r"(?i)<br\s*/?>", "\n", cleaned)
     cleaned = cleaned.replace("**", "")
     cleaned = re.sub(r"(?i)traffic\.pdf", "نظام المرور ولائحته التنفيذية", cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
@@ -260,30 +326,213 @@ def clean_report_text(text):
     return cleaned.strip()
 
 
+def unique_headers(headers):
+    seen = {}
+    result = []
+    for header in headers:
+        name = header or "عمود"
+        count = seen.get(name, 0) + 1
+        seen[name] = count
+        result.append(name if count == 1 else f"{name} ({count})")
+    return result
+
+
+def split_table_row(line):
+    stripped = line.strip().strip("|")
+    return [cell.strip() for cell in stripped.split("|")]
+
+
+def is_separator_row(cells):
+    if not cells:
+        return False
+    return all(re.fullmatch(r":?-{2,}:?", (cell or "").replace(" ", "")) for cell in cells)
+
+
+def looks_like_table_line(line):
+    text = (line or "").strip()
+    if not text or text.count("|") < 1:
+        return False
+    if text.startswith("|") and text.endswith("|"):
+        return True
+    return text.count("|") >= 2
+
+
+def parse_markdown_table(lines):
+    rows = []
+    for line in lines:
+        cells = split_table_row(line)
+        if not cells or is_separator_row(cells):
+            continue
+        rows.append(cells)
+    if len(rows) < 2:
+        return None
+    width = max(len(row) for row in rows)
+    padded = [row + [""] * (width - len(row)) for row in rows]
+    headers = unique_headers(padded[0])
+    body = padded[1:]
+    frame = pd.DataFrame(body, columns=headers)
+    return frame
+
+
+def parse_report_blocks(text):
+    lines = clean_report_text(text).splitlines()
+    blocks = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if looks_like_table_line(line):
+            table_lines = []
+            while index < len(lines) and (looks_like_table_line(lines[index]) or not lines[index].strip()):
+                if lines[index].strip():
+                    table_lines.append(lines[index])
+                index += 1
+            frame = parse_markdown_table(table_lines)
+            if frame is not None:
+                blocks.append(("table", frame))
+            else:
+                blocks.append(("text", "\n".join(table_lines)))
+            continue
+        text_lines = []
+        while index < len(lines) and not looks_like_table_line(lines[index]):
+            text_lines.append(lines[index])
+            index += 1
+        chunk = "\n".join(text_lines).strip()
+        if chunk:
+            blocks.append(("text", chunk))
+    return blocks
+
+
+def facts_frame(facts):
+    rows = []
+    for line in clean_report_text(facts).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if ":" in line:
+            key, value = line.split(":", 1)
+            rows.append({"البند": key.strip(), "البيان": value.strip()})
+        else:
+            rows.append({"البند": "ملاحظة", "البيان": line})
+    if not rows:
+        return pd.DataFrame([{"البند": "بيانات المحضر", "البيان": "غير متوفرة"}])
+    return pd.DataFrame(rows)
+
+
+def html_table(frame):
+    if frame is None or frame.empty:
+        return ""
+    head = "".join(f"<th>{html.escape(str(col))}</th>" for col in frame.columns)
+    body_rows = []
+    for _, row in frame.iterrows():
+        cells = "".join(f"<td>{html.escape(str(value))}</td>" for value in row.tolist())
+        body_rows.append(f"<tr>{cells}</tr>")
+    return (
+        "<table><thead><tr>"
+        + head
+        + "</tr></thead><tbody>"
+        + "".join(body_rows)
+        + "</tbody></table>"
+    )
+
+
+def text_to_html(text):
+    parts = []
+    for paragraph in clean_report_text(text).split("\n"):
+        raw = paragraph.strip()
+        if not raw:
+            continue
+        heading = re.sub(r"^#{1,6}\s*", "", raw)
+        if raw.startswith("#") or raw.endswith(":"):
+            parts.append(f"<h3>{html.escape(heading)}</h3>")
+        else:
+            parts.append(f"<p>{html.escape(raw)}</p>")
+    return "".join(parts)
+
+
 def report_download_html(facts, report):
-    facts_html = html.escape(clean_report_text(facts)).replace("\n", "<br>\n")
-    report_html = html.escape(clean_report_text(report)).replace("\n", "<br>\n")
+    facts_table = html_table(facts_frame(facts))
+    report_parts = []
+    for kind, payload in parse_report_blocks(report):
+        if kind == "table":
+            report_parts.append(html_table(payload))
+        else:
+            report_parts.append(text_to_html(payload))
+    report_html = "".join(report_parts) or f"<p>{html.escape(clean_report_text(report))}</p>"
     return f"""<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <title>التقرير الرسمي للحادث</title>
   <style>
-    body {{ font-family: Tahoma, Arial, sans-serif; direction: rtl; text-align: right; padding: 28px; line-height: 1.8; color: #111; }}
-    h1, h2 {{ margin-bottom: 0.4rem; }}
-    .box {{ border: 1px solid #ccc; padding: 16px; margin-bottom: 18px; }}
-    @media print {{ body {{ padding: 0; }} }}
+    @page {{ size: A4; margin: 16mm; }}
+    body {{
+      font-family: Tahoma, Arial, sans-serif;
+      direction: rtl;
+      text-align: right;
+      color: #122033;
+      line-height: 1.85;
+      margin: 0;
+      padding: 8mm;
+    }}
+    .brand {{
+      border-bottom: 3px solid #0f3d5e;
+      padding-bottom: 10px;
+      margin-bottom: 18px;
+    }}
+    h1 {{ font-size: 22px; margin: 0; color: #0f3d5e; }}
+    h2, h3 {{ color: #0f3d5e; margin: 16px 0 8px; }}
+    p {{ margin: 0 0 10px; }}
+    table {{ width: 100%; border-collapse: collapse; margin: 10px 0 16px; }}
+    th {{ background: #0f3d5e; color: #fff; padding: 8px; border: 1px solid #0b2e47; }}
+    td {{ border: 1px solid #c5d0db; padding: 8px; }}
+    tr:nth-child(even) td {{ background: #f4f7fa; }}
+    .footer {{ margin-top: 28px; font-size: 12px; color: #4a5b6b; }}
   </style>
 </head>
 <body>
-  <h1>حسم الذكي للحوادث المرورية</h1>
+  <div class="brand">
+    <h1>حسم الذكي للحوادث المرورية</h1>
+    <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
+  </div>
   <h2>بيانات المحضر</h2>
-  <div class="box">{facts_html}</div>
+  {facts_table}
   <h2>التقرير النظامي</h2>
-  <div class="box">{report_html}</div>
+  {report_html}
+  <div class="footer">أُعد وفق نظام المرور ولائحته التنفيذية. النسب المعتمدة فقط: 100٪، 75٪، 50٪، 25٪.</div>
 </body>
 </html>
 """
+
+
+def render_official_report(facts, report):
+    st.markdown('<div class="print-document">', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="print-brand">
+          <h2>حسم الذكي للحوادث المرورية</h2>
+          <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("#### بيانات المحضر")
+    st.table(facts_frame(facts))
+    st.markdown("#### التقرير النظامي")
+    blocks = parse_report_blocks(report)
+    if not blocks:
+        st.markdown(
+            f'<div class="official-report">{html.escape(clean_report_text(report)).replace(chr(10), "<br>")}</div>',
+            unsafe_allow_html=True,
+        )
+    for kind, payload in blocks:
+        if kind == "table":
+            st.table(payload)
+        else:
+            st.markdown(
+                f'<div class="official-report">{text_to_html(payload)}</div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -660,15 +909,7 @@ if st.button("🔍 بدء التحليل النظامي"):
 if st.session_state.get("official_report"):
     cleaned_report = st.session_state["official_report"]
     cleaned_facts = st.session_state.get("official_facts", "")
-    st.markdown("### التقرير النظامي للحادث")
-    st.markdown(
-        f'<div class="print-case-facts"><h4>بيانات المحضر</h4><p>{html.escape(cleaned_facts).replace(chr(10), "<br>")}</p></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f'<div id="official-report" class="official-report">{cleaned_report.replace(chr(10), "<br>")}</div>',
-        unsafe_allow_html=True,
-    )
+    render_official_report(cleaned_facts, cleaned_report)
     print_col, save_col = st.columns(2)
     with print_col:
         st.markdown('<div class="no-print">', unsafe_allow_html=True)
