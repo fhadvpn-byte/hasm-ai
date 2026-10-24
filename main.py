@@ -760,11 +760,11 @@ with st.container(key="device_frame", border=False):
         section_header("🛡️ بيانات المحضر وظروف الموقع الميدانية", "بيانات المباشرة")
         m_col1, m_col2, m_col3, m_col4 = st.columns(4)
         with m_col1:
-            inv_name = st.text_input("اسم المحقق", value="فهد أبو عقيلة", key=f"inv_name_{rc}")
-            inv_id = st.text_input("الرقم الوظيفي / العسكري", value="7373", key=f"inv_id_{rc}")
+            inv_name = st.text_input("اسم المحقق", value="", placeholder="أدخل اسم المحقق...", key=f"inv_name_{rc}")
+            inv_id = st.text_input("الرقم الوظيفي / العسكري", value="", placeholder="أدخل الرقم...", key=f"inv_id_{rc}")
         with m_col2:
-            report_no = st.text_input("رقم البلاغ / المحضر", placeholder="600498765", key=f"report_no_{rc}")
-            city = st.text_input("المدينة / الموقع", value="جازان - العارضة", key=f"city_{rc}")
+            report_no = st.text_input("رقم البلاغ / المحضر", value="", placeholder="أدخل رقم المحضر...", key=f"report_no_{rc}")
+            city = st.text_input("المدينة / الموقع", value="", placeholder="مثال: المدينة - الحي / الشارع", key=f"city_{rc}")
         with m_col3:
             site_type = st.selectbox(
                 "نوع الموقع",
