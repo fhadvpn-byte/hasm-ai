@@ -1,6 +1,8 @@
+import base64
 import html
 import re
 import time
+from pathlib import Path
 
 import pandas as pd
 import PyPDF2
@@ -8,12 +10,73 @@ import streamlit as st
 import streamlit.components.v1 as components
 from groq import Groq
 
+FALLBACK_EMBLEM_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" role="img" aria-label="شعار المرور السعودي">
+  <defs>
+    <linearGradient id="shieldFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef6ee"/>
+      <stop offset="100%" stop-color="#cfe3d4"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4d56a"/>
+      <stop offset="100%" stop-color="#c9a227"/>
+    </linearGradient>
+  </defs>
+  <path d="M100 8 L176 36 Q188 42 188 56 L188 118 Q188 168 100 210 Q12 168 12 118 L12 56 Q12 42 24 36 Z"
+        fill="url(#shieldFace)" stroke="#7ea48a" stroke-width="8"/>
+  <path d="M100 22 L168 46 Q176 50 176 60 L176 116 Q176 156 100 192 Q24 156 24 116 L24 60 Q24 50 32 46 Z"
+        fill="none" stroke="#b7d0be" stroke-width="3"/>
+  <path d="M74 38 H126 L132 48 L100 70 L68 48 Z" fill="url(#gold)" stroke="#8a6b12" stroke-width="1.4"/>
+  <circle cx="100" cy="46" r="4.2" fill="#8a6b12"/>
+  <ellipse cx="100" cy="108" rx="70" ry="28" fill="none" stroke="#111" stroke-width="6"/>
+  <ellipse cx="100" cy="108" rx="70" ry="28" fill="none" stroke="#111" stroke-width="2.2"/>
+  <circle cx="100" cy="108" r="27" fill="#111"/>
+  <path d="M100 90 C93 98 90 106 90 114 C90 124 100 132 100 132 C100 132 110 124 110 114 C110 106 107 98 100 90 Z" fill="url(#gold)"/>
+  <path d="M100 104 v20 M92 112 h16" stroke="#111" stroke-width="1.6"/>
+  <path d="M78 118 L96 126 L100 118 L104 126 L122 118" fill="none" stroke="url(#gold)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M82 124 L100 118 L118 124" fill="none" stroke="url(#gold)" stroke-width="2.4" stroke-linecap="round"/>
+  <text x="36" y="116" fill="#111" font-size="13" font-family="Tahoma, Arial" font-weight="700">العام</text>
+  <text x="132" y="116" fill="#111" font-size="13" font-family="Tahoma, Arial" font-weight="700">الأمن</text>
+  <text x="100" y="168" text-anchor="middle" fill="#111" font-size="22" font-family="Tahoma, Arial" font-weight="800">المرور</text>
+</svg>
+""".strip()
+LOGO_FILENAMES = ("traffic_logo.png", "logo.png", "traffic_logo.png.png", "logo.svg", "traffic_logo.svg")
+
+
+def find_logo_file():
+    root = Path(__file__).resolve().parent
+    for name in LOGO_FILENAMES:
+        path = root / name
+        if path.is_file():
+            return path
+    return None
+
+
+def load_brand_logo():
+    path = find_logo_file()
+    if path is not None:
+        suffix = path.suffix.lower()
+        mime = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+            ".svg": "image/svg+xml",
+        }.get(suffix, "image/png")
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    encoded = base64.b64encode(FALLBACK_EMBLEM_SVG.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
 st.set_page_config(
     page_title="حسم الذكي للحوادث المرورية",
-    page_icon="⬡",
+    page_icon=str(find_logo_file() or "⬡"),
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+BRAND_LOGO_URI = load_brand_logo()
 
 st.markdown(
     """
@@ -55,27 +118,38 @@ st.markdown(
         opacity: 0 !important;
       }
       .hasm-hero {
+        position: relative;
+        z-index: 1;
         display: flex;
         align-items: center;
         gap: 18px;
         margin: 0.2rem 0 1.4rem;
         padding: 1.1rem 1.3rem;
-        border: 1px solid rgba(120, 200, 255, 0.25);
+        border: 1px solid rgba(170, 220, 210, 0.22);
         border-radius: 18px;
-        background: linear-gradient(135deg, rgba(8, 28, 48, 0.92), rgba(12, 64, 86, 0.78));
+        background: linear-gradient(135deg, rgba(8, 28, 48, 0.78), rgba(10, 48, 42, 0.62));
+        backdrop-filter: blur(16px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
       }
       .hasm-mark {
-        width: 64px;
-        height: 64px;
-        flex: 0 0 64px;
+        width: 75px;
+        height: 75px;
+        flex: 0 0 75px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 16px;
-        font-size: 34px;
-        color: #7ee7ff;
-        background: radial-gradient(circle at 30% 30%, #1bd6ff, #0b3b63 62%);
-        box-shadow: 0 0 24px rgba(80, 220, 255, 0.35);
+        padding: 7px;
+        border-radius: 20px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+        border: 1px solid rgba(190, 230, 220, 0.32);
+        box-shadow: 0 0 28px rgba(90, 210, 180, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        backdrop-filter: blur(14px);
+      }
+      .hasm-mark img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
       }
       .hasm-hero h1 {
         margin: 0;
@@ -194,6 +268,93 @@ st.markdown(
         color: #ffffff !important;
         border: 1px solid #0b2e47 !important;
       }
+      .stApp, [data-testid="stAppViewContainer"] {
+        background-color: #0a1118 !important;
+        background-image:
+          linear-gradient(rgba(140, 190, 175, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(140, 190, 175, 0.035) 1px, transparent 1px),
+          radial-gradient(ellipse at 18% 8%, rgba(18, 52, 68, 0.62), transparent 54%),
+          radial-gradient(ellipse at 88% 92%, rgba(7, 32, 28, 0.7), transparent 48%),
+          linear-gradient(165deg, #0a1118 0%, #0f1e2e 46%, #071a16 100%) !important;
+        background-size: 56px 56px, 56px 56px, auto, auto, auto !important;
+        background-attachment: fixed !important;
+      }
+      html[data-theme="light"] .stApp,
+      html[data-theme="light"] [data-testid="stAppViewContainer"] {
+        background-color: #eef3f1 !important;
+        background-image:
+          linear-gradient(rgba(15, 61, 94, 0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(15, 61, 94, 0.045) 1px, transparent 1px),
+          radial-gradient(ellipse at 18% 8%, rgba(210, 228, 222, 0.9), transparent 54%),
+          radial-gradient(ellipse at 88% 92%, rgba(220, 232, 236, 0.85), transparent 48%),
+          linear-gradient(165deg, #f5f8f6 0%, #e7eef3 48%, #eef5f1 100%) !important;
+      }
+      [data-testid="stHeader"] {
+        background: transparent !important;
+      }
+      [data-testid="stHeader"],
+      [data-testid="stSidebar"],
+      [data-testid="stMain"],
+      .main,
+      .block-container {
+        position: relative;
+        z-index: 1;
+      }
+      [data-testid="stSidebar"] {
+        background: rgba(8, 16, 24, 0.72) !important;
+        backdrop-filter: blur(18px);
+      }
+      html[data-theme="light"] [data-testid="stSidebar"] {
+        background: rgba(255, 255, 255, 0.62) !important;
+      }
+      .hasm-watermark {
+        position: fixed;
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 420px;
+        opacity: 0.04;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .hasm-watermark img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      [data-testid="stTextInput"] input,
+      [data-testid="stTextArea"] textarea,
+      [data-testid="stNumberInput"] input,
+      [data-testid="stDateInput"] input,
+      [data-testid="stTimeInput"] input,
+      div[data-baseweb="select"] > div,
+      div[data-baseweb="input"] {
+        background: rgba(10, 22, 32, 0.48) !important;
+        backdrop-filter: blur(14px) !important;
+        border: 1px solid rgba(170, 210, 200, 0.18) !important;
+        border-radius: 12px !important;
+      }
+      html[data-theme="light"] [data-testid="stTextInput"] input,
+      html[data-theme="light"] [data-testid="stTextArea"] textarea,
+      html[data-theme="light"] [data-testid="stNumberInput"] input,
+      html[data-theme="light"] [data-testid="stDateInput"] input,
+      html[data-theme="light"] [data-testid="stTimeInput"] input,
+      html[data-theme="light"] div[data-baseweb="select"] > div,
+      html[data-theme="light"] div[data-baseweb="input"] {
+        background: rgba(255, 255, 255, 0.58) !important;
+        border: 1px solid rgba(15, 61, 94, 0.14) !important;
+      }
+      [data-testid="stHorizontalBlock"]:has([data-testid="stSelectbox"]) [data-testid="stColumn"] {
+        background: rgba(12, 28, 38, 0.38);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(140, 190, 180, 0.16);
+        border-radius: 16px;
+        padding: 0.55rem 0.5rem 0.75rem;
+      }
+      html[data-theme="light"] [data-testid="stHorizontalBlock"]:has([data-testid="stSelectbox"]) [data-testid="stColumn"] {
+        background: rgba(255, 255, 255, 0.48);
+        border: 1px solid rgba(15, 61, 94, 0.12);
+      }
       @media print {
         @page {
           size: A4;
@@ -213,6 +374,18 @@ st.markdown(
           color: #000000 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
+        }
+        .hasm-watermark, .hasm-watermark img, .no-print {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+          background: none !important;
+          background-image: none !important;
+        }
+        html, body, .stApp, [data-testid="stAppViewContainer"],
+        [data-testid="stMain"], .main, .block-container {
+          background: #ffffff !important;
+          background-image: none !important;
         }
         header, footer, [data-testid="stHeader"], [data-testid="stToolbar"],
         [data-testid="stDecoration"], [data-testid="stSidebar"],
@@ -299,6 +472,15 @@ st.markdown(
         }
       }
     </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    f"""
+    <div class="hasm-watermark no-print" aria-hidden="true">
+      <img src="{BRAND_LOGO_URI}" alt="">
+    </div>
     """,
     unsafe_allow_html=True,
 )
@@ -1115,9 +1297,11 @@ pages_count, traffic_law_text = load_traffic_law()
 api_key, key_error = load_api_key()
 
 st.markdown(
-    """
+    f"""
     <div class="hasm-hero">
-      <div class="hasm-mark">⬡</div>
+      <div class="hasm-mark">
+        <img src="{BRAND_LOGO_URI}" alt="شعار الإدارة العامة للمرور">
+      </div>
       <div>
         <h1>حسم الذكي للحوادث المرورية</h1>
         <p>منصة استدلال نظامي لتحليل المسؤولية المرورية بالذكاء الاصطناعي</p>
