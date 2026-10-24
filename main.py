@@ -1,523 +1,49 @@
 import base64
 import html
+import os
 import re
-import time
+from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
-import PyPDF2
 import streamlit as st
-import streamlit.components.v1 as components
-from groq import Groq
 
-FALLBACK_EMBLEM_SVG = """
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" role="img" aria-label="شعار المرور السعودي">
-  <defs>
-    <linearGradient id="shieldFace" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#eef6ee"/>
-      <stop offset="100%" stop-color="#cfe3d4"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f4d56a"/>
-      <stop offset="100%" stop-color="#c9a227"/>
-    </linearGradient>
-  </defs>
-  <path d="M100 8 L176 36 Q188 42 188 56 L188 118 Q188 168 100 210 Q12 168 12 118 L12 56 Q12 42 24 36 Z"
-        fill="url(#shieldFace)" stroke="#7ea48a" stroke-width="8"/>
-  <path d="M100 22 L168 46 Q176 50 176 60 L176 116 Q176 156 100 192 Q24 156 24 116 L24 60 Q24 50 32 46 Z"
-        fill="none" stroke="#b7d0be" stroke-width="3"/>
-  <path d="M74 38 H126 L132 48 L100 70 L68 48 Z" fill="url(#gold)" stroke="#8a6b12" stroke-width="1.4"/>
-  <circle cx="100" cy="46" r="4.2" fill="#8a6b12"/>
-  <ellipse cx="100" cy="108" rx="70" ry="28" fill="none" stroke="#111" stroke-width="6"/>
-  <ellipse cx="100" cy="108" rx="70" ry="28" fill="none" stroke="#111" stroke-width="2.2"/>
-  <circle cx="100" cy="108" r="27" fill="#111"/>
-  <path d="M100 90 C93 98 90 106 90 114 C90 124 100 132 100 132 C100 132 110 124 110 114 C110 106 107 98 100 90 Z" fill="url(#gold)"/>
-  <path d="M100 104 v20 M92 112 h16" stroke="#111" stroke-width="1.6"/>
-  <path d="M78 118 L96 126 L100 118 L104 126 L122 118" fill="none" stroke="url(#gold)" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M82 124 L100 118 L118 124" fill="none" stroke="url(#gold)" stroke-width="2.4" stroke-linecap="round"/>
-  <text x="36" y="116" fill="#111" font-size="13" font-family="Tahoma, Arial" font-weight="700">العام</text>
-  <text x="132" y="116" fill="#111" font-size="13" font-family="Tahoma, Arial" font-weight="700">الأمن</text>
-  <text x="100" y="168" text-anchor="middle" fill="#111" font-size="22" font-family="Tahoma, Arial" font-weight="800">المرور</text>
-</svg>
-""".strip()
-LOGO_FILENAMES = ("traffic_logo.png", "logo.png", "traffic_logo.png.png", "logo.svg", "traffic_logo.svg")
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None
 
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
 
-def find_logo_file():
-    root = Path(__file__).resolve().parent
-    for name in LOGO_FILENAMES:
-        path = root / name
-        if path.is_file():
-            return path
-    return None
+try:
+    from pypdf import PdfReader
+except ImportError:
+    try:
+        from PyPDF2 import PdfReader
+    except ImportError:
+        PdfReader = None
 
+APP_DIR = Path(__file__).resolve().parent
+LOGO_NAMES = ("traffic_logo.png", "logo.png", "traffic_logo.png.png", "logo.svg")
 
-def load_brand_logo():
-    path = find_logo_file()
-    if path is not None:
-        suffix = path.suffix.lower()
-        mime = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".webp": "image/webp",
-            ".svg": "image/svg+xml",
-        }.get(suffix, "image/png")
-        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-        return f"data:{mime};base64,{encoded}"
-    encoded = base64.b64encode(FALLBACK_EMBLEM_SVG.encode("utf-8")).decode("ascii")
-    return f"data:image/svg+xml;base64,{encoded}"
+BUILTIN_TRAFFIC_LAW_REFERENCE = """
+[المرجع النظامي الأساسي لنظام المرور السعودي ولائحته التنفيذية - المواد 50، 60، 61، 62]:
+1. المادة (50) وتقسيماتها - تنظيمات السير والأولويات على الطرق:
+- المادة (50/2): يجب على قائد المركبة السيطرة على مركبته وتكييف سرعته وفق الظروف الطبيعية وأحوال الطريق، وتهدئة السرعة والتأكد من خلو التقاطع قبل دخوله، وترك مسافة آمنة كافية بينه وبين المركبة التي أمامه.
+- المادة (50/4): يحظر الانعطاف أو الدوران للخلف أو الرجوع للخلف أو تغيير المسار إلا بعد التأكد من خلو الطريق وإعطاء الإشارة اللازمة.
+- المادة (50/5) - قواعد أولوية المرور في التقاطعات:
+  أ) في التقاطعات غير المنظمة بإشارات ضوئية أو رجل مرور أو لوحات أولوية: تكون الأولوية للمركبة التي دخلت التقاطع أولاً.
+  ب) عند دخول مركبتين للتقاطع المتكافئ في وقت واحد: تكون الأولوية للمركبة القادمة من جهة اليمين.
+  ج) تكون الأولوية للمركبات السائرة في الطريق الرئيسي على المركبات القادمة من طريق فرعي أو موقف أو محطة أو عقار خاص.
+  د) تكون الأولوية للمركبات السائرة داخل الدوار على المركبات الراغبة في دخول الدوار.
+  هـ) تكون الأولوية للمركبات السائرة في مسارها المستقيم على المركبات الراغبة في الانعطاف أو الدوران أو تغيير المسار.
+2. المادة (60): الحادث المروري هو كل حادث ينتج عنه أضرار بشرية أو مادية دون قصد نتيجة استخدام المركبة، وتُقسم نسب المسؤولية حصرياً وفق النسب القياسية المعتمدة: (100%، 75%، 50%، 25%، 0%) بحيث يكون مجموع نسب الأطراف 100% دائماً.
+3. المادة (61) والمادة (62): تختص الإدارة المختصة (المرور) بمباشرة الحوادث المرورية، معاينة الموقع، رفع الآثار المادية، تخطيط الرسم الميداني (الكروكي)، وتحديد نسب الإدانة والمسؤولية بدقة وفق الأنظمة.
+"""
 
-
-st.set_page_config(
-    page_title="حسم الذكي للحوادث المرورية",
-    page_icon=str(find_logo_file() or "⬡"),
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-BRAND_LOGO_URI = load_brand_logo()
-
-st.markdown(
-    """
-    <style>
-      html, body, .stApp, [data-testid="stAppViewContainer"],
-      [data-testid="stHeader"], [data-testid="stToolbar"],
-      [data-testid="stSidebar"], [data-testid="stSidebarContent"],
-      .main, .block-container {
-        direction: rtl !important;
-        text-align: right !important;
-      }
-      .stMarkdown, .stText, .stCaption, label, p, h1, h2, h3, h4, h5, h6,
-      .stAlert, [data-testid="stNotification"], [data-testid="stWidgetLabel"] {
-        direction: rtl !important;
-        text-align: right !important;
-      }
-      textarea, input, .stTextArea textarea, .stTextInput input {
-        direction: rtl !important;
-        text-align: right !important;
-      }
-      div[data-baseweb="select"] > div, div[data-baseweb="input"] {
-        direction: rtl !important;
-        text-align: right !important;
-      }
-      [data-testid="stSidebar"] .block-container {
-        padding-top: 1.2rem;
-      }
-      [data-testid="stSidebar"] {
-        overflow-x: hidden !important;
-      }
-      [data-testid="stSidebar"][aria-expanded="false"] {
-        width: 0px !important;
-        min-width: 0px !important;
-        overflow: hidden !important;
-      }
-      [data-testid="stSidebar"][aria-expanded="false"] > div {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-      }
-      .hasm-hero {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        align-items: center;
-        gap: 18px;
-        margin: 0.2rem 0 1.4rem;
-        padding: 1.1rem 1.3rem;
-        border: 1px solid rgba(170, 220, 210, 0.22);
-        border-radius: 18px;
-        background: linear-gradient(135deg, rgba(8, 28, 48, 0.78), rgba(10, 48, 42, 0.62));
-        backdrop-filter: blur(16px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-      }
-      .hasm-mark {
-        width: 75px;
-        height: 75px;
-        flex: 0 0 75px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 7px;
-        border-radius: 20px;
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
-        border: 1px solid rgba(190, 230, 220, 0.32);
-        box-shadow: 0 0 28px rgba(90, 210, 180, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-        backdrop-filter: blur(14px);
-      }
-      .hasm-mark img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        display: block;
-      }
-      .hasm-hero h1 {
-        margin: 0;
-        font-size: 1.85rem;
-        font-weight: 800;
-        color: #f4fbff;
-        letter-spacing: 0.3px;
-      }
-      .hasm-hero p {
-        margin: 0.25rem 0 0;
-        color: #b7d7e8;
-        font-size: 0.98rem;
-      }
-      .stButton > button {
-        width: 100%;
-        font-weight: 700;
-      }
-      .print-document {
-        background: #ffffff;
-        color: #111827;
-        border: 1px solid #d7dde6;
-        border-radius: 12px;
-        padding: 1.3rem 1.4rem 1.5rem;
-        margin: 0.4rem 0 1rem;
-      }
-      .print-document h2, .print-document h3, .print-document h4 {
-        color: #0f3d5e;
-        font-family: Tahoma, Arial, sans-serif;
-        margin: 1rem 0 0.45rem;
-      }
-      .print-brand {
-        border-bottom: 3px solid #0f3d5e;
-        padding-bottom: 0.7rem;
-        margin-bottom: 1rem;
-      }
-      .print-brand h2 {
-        margin: 0;
-        font-size: 1.35rem;
-        color: #0f3d5e;
-      }
-      .print-brand p {
-        margin: 0.2rem 0 0;
-        color: #4a5b6b;
-      }
-      .official-report {
-        line-height: 1.9;
-        text-align: right;
-        direction: rtl;
-        font-family: Tahoma, Arial, sans-serif;
-        font-size: 1.02rem;
-        color: #111827;
-      }
-      .print-document table,
-      .official-report table,
-      [data-testid="stTable"] table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 0.8rem 0 1.1rem;
-        background: #ffffff !important;
-      }
-      .print-document th,
-      .official-report th,
-      [data-testid="stTable"] th {
-        background: #0f3d5e !important;
-        color: #ffffff !important;
-        font-weight: 700;
-        padding: 10px 8px;
-        border: 1px solid #0b2e47;
-      }
-      .print-document td,
-      .official-report td,
-      [data-testid="stTable"] td,
-      .print-document td *,
-      .official-report td *,
-      [data-testid="stTable"] td * {
-        border: 1px solid #c5d0db;
-        padding: 9px 8px;
-        background: #ffffff !important;
-        color: #111827 !important;
-      }
-      .print-document tr:nth-child(even) td,
-      .official-report tr:nth-child(even) td,
-      [data-testid="stTable"] tbody tr:nth-child(even) td,
-      .print-document tr:nth-child(even) td *,
-      .official-report tr:nth-child(even) td *,
-      [data-testid="stTable"] tbody tr:nth-child(even) td * {
-        background: #f8f9fa !important;
-        color: #111827 !important;
-      }
-      [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has([data-testid="stDownloadButton"]) {
-        align-items: stretch !important;
-        gap: 0.75rem;
-      }
-      [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has([data-testid="stDownloadButton"]) [data-testid="stColumn"] {
-        display: flex !important;
-        align-items: stretch !important;
-      }
-      [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has([data-testid="stDownloadButton"]) iframe {
-        height: 48px !important;
-        min-height: 48px !important;
-        width: 100% !important;
-        border: 0 !important;
-      }
-      [data-testid="stDownloadButton"],
-      [data-testid="stDownloadButton"] > button,
-      .stDownloadButton,
-      .stDownloadButton > button {
-        width: 100% !important;
-        height: 48px !important;
-        min-height: 48px !important;
-        margin: 0 !important;
-        border-radius: 8px !important;
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        background: #0f3d5e !important;
-        color: #ffffff !important;
-        border: 1px solid #0b2e47 !important;
-      }
-      .stApp, [data-testid="stAppViewContainer"] {
-        background-color: #0a1118 !important;
-        background-image:
-          linear-gradient(rgba(140, 190, 175, 0.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(140, 190, 175, 0.035) 1px, transparent 1px),
-          radial-gradient(ellipse at 18% 8%, rgba(18, 52, 68, 0.62), transparent 54%),
-          radial-gradient(ellipse at 88% 92%, rgba(7, 32, 28, 0.7), transparent 48%),
-          linear-gradient(165deg, #0a1118 0%, #0f1e2e 46%, #071a16 100%) !important;
-        background-size: 56px 56px, 56px 56px, auto, auto, auto !important;
-        background-attachment: fixed !important;
-      }
-      html[data-theme="light"] .stApp,
-      html[data-theme="light"] [data-testid="stAppViewContainer"] {
-        background-color: #eef3f1 !important;
-        background-image:
-          linear-gradient(rgba(15, 61, 94, 0.045) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(15, 61, 94, 0.045) 1px, transparent 1px),
-          radial-gradient(ellipse at 18% 8%, rgba(210, 228, 222, 0.9), transparent 54%),
-          radial-gradient(ellipse at 88% 92%, rgba(220, 232, 236, 0.85), transparent 48%),
-          linear-gradient(165deg, #f5f8f6 0%, #e7eef3 48%, #eef5f1 100%) !important;
-      }
-      [data-testid="stHeader"] {
-        background: transparent !important;
-      }
-      [data-testid="stHeader"],
-      [data-testid="stSidebar"],
-      [data-testid="stMain"],
-      .main,
-      .block-container {
-        position: relative;
-        z-index: 1;
-      }
-      [data-testid="stSidebar"] {
-        background: rgba(8, 16, 24, 0.72) !important;
-        backdrop-filter: blur(18px);
-      }
-      html[data-theme="light"] [data-testid="stSidebar"] {
-        background: rgba(255, 255, 255, 0.62) !important;
-      }
-      .hasm-watermark {
-        position: fixed;
-        top: 55%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 420px;
-        opacity: 0.04;
-        pointer-events: none;
-        z-index: 0;
-      }
-      .hasm-watermark img {
-        width: 100%;
-        height: auto;
-        display: block;
-      }
-      [data-testid="stTextInput"] input,
-      [data-testid="stTextArea"] textarea,
-      [data-testid="stNumberInput"] input,
-      [data-testid="stDateInput"] input,
-      [data-testid="stTimeInput"] input,
-      div[data-baseweb="select"] > div,
-      div[data-baseweb="input"] {
-        background: rgba(10, 22, 32, 0.48) !important;
-        backdrop-filter: blur(14px) !important;
-        border: 1px solid rgba(170, 210, 200, 0.18) !important;
-        border-radius: 12px !important;
-      }
-      html[data-theme="light"] [data-testid="stTextInput"] input,
-      html[data-theme="light"] [data-testid="stTextArea"] textarea,
-      html[data-theme="light"] [data-testid="stNumberInput"] input,
-      html[data-theme="light"] [data-testid="stDateInput"] input,
-      html[data-theme="light"] [data-testid="stTimeInput"] input,
-      html[data-theme="light"] div[data-baseweb="select"] > div,
-      html[data-theme="light"] div[data-baseweb="input"] {
-        background: rgba(255, 255, 255, 0.58) !important;
-        border: 1px solid rgba(15, 61, 94, 0.14) !important;
-      }
-      [data-testid="stHorizontalBlock"]:has([data-testid="stSelectbox"]) [data-testid="stColumn"] {
-        background: rgba(12, 28, 38, 0.38);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(140, 190, 180, 0.16);
-        border-radius: 16px;
-        padding: 0.55rem 0.5rem 0.75rem;
-      }
-      html[data-theme="light"] [data-testid="stHorizontalBlock"]:has([data-testid="stSelectbox"]) [data-testid="stColumn"] {
-        background: rgba(255, 255, 255, 0.48);
-        border: 1px solid rgba(15, 61, 94, 0.12);
-      }
-      @media print {
-        @page {
-          size: A4;
-          margin: 10mm !important;
-        }
-        html, body, .stApp, [data-testid="stAppViewContainer"],
-        [data-testid="stMain"], [data-testid="stAppScrollToBottomContainer"],
-        .main, .block-container {
-          padding: 0 !important;
-          margin: 0 !important;
-          padding-top: 0 !important;
-          margin-top: 0 !important;
-          height: auto !important;
-          min-height: 0 !important;
-          overflow: visible !important;
-          background: #ffffff !important;
-          color: #000000 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        .hasm-watermark, .hasm-watermark img, .no-print {
-          display: none !important;
-          opacity: 0 !important;
-          visibility: hidden !important;
-          background: none !important;
-          background-image: none !important;
-        }
-        html, body, .stApp, [data-testid="stAppViewContainer"],
-        [data-testid="stMain"], .main, .block-container {
-          background: #ffffff !important;
-          background-image: none !important;
-        }
-        header, footer, [data-testid="stHeader"], [data-testid="stToolbar"],
-        [data-testid="stDecoration"], [data-testid="stSidebar"],
-        [data-testid="stSidebarCollapsedControl"], .hasm-hero,
-        .no-print, .stDownloadButton, [data-testid="stDownloadButton"],
-        .stButton, iframe, [data-testid="stBottomBlockContainer"],
-        [data-testid="stTextInput"], [data-testid="stTextArea"],
-        [data-testid="stSelectbox"], [data-testid="stRadio"],
-        [data-testid="stCheckbox"], [data-testid="stDateInput"],
-        [data-testid="stTimeInput"], [data-testid="stAlert"],
-        [data-testid="stNotification"], [data-testid="stWidgetLabel"],
-        [data-testid="stChatInput"], hr,
-        [data-testid="stStatusWidget"], [data-testid="stDeployButton"] {
-          display: none !important;
-          height: 0 !important;
-          min-height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-        }
-        [data-testid="element-container"]:not(:has(#official-print-report)),
-        [data-testid="stElementContainer"]:not(:has(#official-print-report)),
-        [data-testid="stHorizontalBlock"]:not(:has(#official-print-report)),
-        [data-testid="stVerticalBlockBorderWrapper"]:not(:has(#official-print-report)) {
-          display: none !important;
-          height: 0 !important;
-          min-height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        [data-testid="element-container"]:has(#official-print-report),
-        [data-testid="stElementContainer"]:has(#official-print-report),
-        [data-testid="stMarkdownContainer"]:has(#official-print-report),
-        [data-testid="stVerticalBlock"]:has(#official-print-report) {
-          display: block !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          height: auto !important;
-        }
-        #official-print-report {
-          display: block !important;
-          position: relative !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border: none !important;
-          border-radius: 0 !important;
-          box-shadow: none !important;
-          background: #ffffff !important;
-          color: #000000 !important;
-        }
-        .print-document, .official-report, .print-brand,
-        .print-document p, .official-report p, .print-brand p,
-        .print-document h2, .print-document h3, .official-report h3 {
-          background: #ffffff !important;
-          color: #000000 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        table th, table thead tr, .report-table th,
-        .print-document th, .official-report th,
-        #official-print-report th, #official-print-report thead tr {
-          background-color: #0f3d68 !important;
-          color: #ffffff !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        table td, .report-table td, .print-document td, .official-report td,
-        #official-print-report td {
-          background-color: #ffffff !important;
-          color: #111827 !important;
-          border: 1px solid #cbd5e1 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        table tr:nth-child(even) td,
-        .report-table tr:nth-child(even) td,
-        .print-document tr:nth-child(even) td,
-        .official-report tr:nth-child(even) td,
-        #official-print-report tr:nth-child(even) td {
-          background-color: #f8fafc !important;
-        }
-      }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    f"""
-    <div class="hasm-watermark no-print" aria-hidden="true">
-      <img src="{BRAND_LOGO_URI}" alt="">
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-GROQ_MODEL = "openai/gpt-oss-120b"
-API_KEY_NAME = "GROQ_API_KEY"
-APPROVED_RATIOS = ("0%", "25%", "50%", "75%", "100%")
-PDF_PATH = "traffic.pdf"
-LAW_PAGE_START = 50
-LAW_PAGE_END = 80
-CHUNK_SIZE = 1800
-CHUNK_OVERLAP = 150
-MAX_MAP_CHUNKS = 4
-MAX_EXTRACT_CHARS = 4500
-MAX_QUERY_CHARS = 900
-REQUEST_PAUSE_SEC = 1.8
-MAX_RETRIES = 4
-LAW_KEYWORDS = (
-    "حادث", "مسؤولية", "خطأ", "تقاطع", "إشارة", "تجاوز", "أولوية", "مسار",
-    "انعطف", "انعطاف", "سرعة", "مشاة", "وقوف", "متوقف", "رجوع", "دوار",
-    "يسار", "يمين", "حمراء", "خضراء", "كتف", "مخرج", "مدخل", "عكس",
-    "مركبة", "سائق", "تصادم", "اصطدام", "مادة",
-)
-CHAIN_HINTS = (
-    "تتابع",
-    "رتل",
-    "دفع قسري",
-    "اندفعت قسرا",
-    "اندفعت قسري",
-    "اصطدام متسلسل",
-    "سلسلة اصطدام",
-    "مركبات متتالية",
-    "عدة مركبات خلف",
-    "صدمتها من الخلف فاندفعت",
-    "اصطدمت من الخلف واندفعت",
-)
-MANEUVERS = [
+MANEUVER_OPTIONS = [
     "سير مستقيم",
     "متوقف (وقوف نظامي / عند إشارة)",
     "متوقف (وقوف خاطئ / معطل بدون تحذير)",
@@ -540,929 +66,961 @@ MANEUVERS = [
     "سقوط حمولة غير مثبتة",
     "اندفاع قسري (نتيجة صدم خلفي)",
 ]
-SIGNALS = ["لا توجد إشارة", "خضراء", "صفراء", "حمراء", "وميض", "غير معلوم"]
-PRIORITIES = ["له أولوية", "عليه أولوية للغير", "غير محدد"]
-RATIO_TABLE_HEADERS = [
-    "الطرف",
-    "المركبة",
-    "نسبة المسؤولية %",
-    "سبب الإدانة / الإعفاء",
-    "السند النظامي من المادة",
-]
-BUILTIN_LEGAL_REFERENCE = """مرجع نظامي معتمد (ملخص رسمي ثابت من نظام المرور السعودي ولائحته التنفيذية).
-هذا المرجع مقدَّم على أي نص مستخرج من PDF إذا تعارض معه أو ظهر ترقيم المواد معكوساً.
-تنبيه استخراج: أرقام مثل 61 قد تظهر 16، و62 قد تظهر 26؛ اعتمد دائماً المواد 50 و60 و61 و62 كما هي موثّقة أدناه.
 
-المادة (50) تنظيمات السير والأولويات في التقاطعات:
-- (50/5): أولوية المرور في التقاطعات غير المنظمة بإشارات أو رجل مرور تكون لـ: المركبة التي دخلت التقاطع أولاً، وعند الدخول في وقت واحد تكون الأولوية للمركبة القادمة من جهة اليمين، وللمركبات السائرة في طريق رئيسي على الطريق الفرعي.
-- (50/2): يجب على السائق تهدئة السرعة والتأكد من خلو التقاطع قبل دخوله، وترك مسافة آمنة بين المركبات.
+FALLBACK_ORB_SVG = """
+<svg viewBox="0 0 100 100" width="78" height="78" fill="none">
+    <circle cx="50" cy="50" r="44" stroke="#00f2fe" stroke-width="2" stroke-dasharray="6 4"/>
+    <circle cx="50" cy="50" r="32" stroke="#38bdf8" stroke-width="1.5" fill="rgba(0,242,254,0.12)"/>
+    <path d="M50 22L72 34V54C72 69 50 80 50 80C50 80 28 69 28 54V34L50 22Z" stroke="#ffffff" stroke-width="2.2" fill="rgba(14,165,233,0.35)"/>
+    <circle cx="50" cy="50" r="8" fill="#00f2fe"/>
+</svg>
+"""
 
-المادة (60): الحادث المروري هو كل ما ينتج عنه أضرار بسبب استخدام المركبة، وتقسم المسؤولية حسب نسبة الخطأ في ارتكاب المخالفة المسببة للحادث.
-
-المادة (61) والمادة (62): إجراءات مباشرة الحوادث وتحديد نسب الإدانة والمسؤولية.
+PAGE_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Orbitron:wght@700;900&display=swap');
+html, body, [class*="css"], .stApp {
+    font-family: 'Tajawal', sans-serif !important;
+    direction: rtl;
+}
+.stApp, [data-testid="stAppViewContainer"] {
+    background:
+        radial-gradient(circle at 50% -10%, rgba(0, 242, 254, 0.35) 0%, rgba(2, 132, 199, 0.15) 30%, transparent 65%),
+        radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.22) 0%, transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(14, 165, 233, 0.22) 0%, transparent 45%),
+        radial-gradient(circle at 50% 100%, rgba(0, 242, 254, 0.25) 0%, transparent 55%),
+        linear-gradient(180deg, #020b1c 0%, #041938 45%, #031126 80%, #010712 100%) !important;
+    color: #ffffff !important;
+    background-attachment: fixed !important;
+}
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(0, 242, 254, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 242, 254, 0.04) 1px, transparent 1px);
+    background-size: 45px 45px;
+    pointer-events: none;
+    z-index: 0;
+}
+/*WATERMARK*/
+[data-testid="stHeader"] {
+    background: transparent !important;
+}
+.block-container {
+    max-width: 1050px !important;
+    position: relative;
+    z-index: 2;
+}
+.st-key-device_frame {
+    background: linear-gradient(180deg, rgba(6, 32, 72, 0.72) 0%, rgba(3, 18, 42, 0.85) 100%);
+    border: 2px solid #00f2fe;
+    border-radius: 34px;
+    padding: 22px 26px 10px 26px;
+    box-shadow:
+        0 0 40px rgba(0, 242, 254, 0.35),
+        inset 0 0 30px rgba(0, 242, 254, 0.15);
+    margin-bottom: 24px;
+}
+.vision-hero-card {
+    background: linear-gradient(135deg, rgba(8, 48, 107, 0.9) 0%, rgba(3, 25, 62, 0.95) 100%);
+    border: 2px solid #00f2fe;
+    border-radius: 26px;
+    padding: 26px 32px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    box-shadow:
+        0 0 35px rgba(0, 242, 254, 0.45),
+        inset 0 0 28px rgba(0, 242, 254, 0.22);
+    position: relative;
+    overflow: hidden;
+}
+.vision-hero-card::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -20%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.28) 0%, transparent 70%);
+    pointer-events: none;
+}
+.vision-right {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 2;
+}
+.top-mini-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 242, 254, 0.16);
+    border: 1px solid #00f2fe;
+    color: #e0f2fe;
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    width: fit-content;
+    box-shadow: 0 0 12px rgba(0, 242, 254, 0.4);
+}
+.vision-2030-title {
+    font-family: 'Orbitron', 'Tajawal', sans-serif;
+    font-size: 2.7rem;
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.1;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px #00f2fe, 0 0 40px rgba(0, 242, 254, 0.7);
+    margin: 4px 0;
+}
+.vision-2030-title span {
+    color: #00f2fe;
+}
+.hasm-main-title {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #ffffff;
+    margin: 0;
+    text-shadow: 0 0 14px rgba(56, 189, 248, 0.8);
+}
+.hasm-subtitle {
+    color: #7dd3fc;
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0;
+}
+.holo-orb-wrapper {
+    position: relative;
+    width: 138px;
+    height: 138px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    z-index: 2;
+}
+.holo-orb-ring-outer {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2.5px solid #00f2fe;
+    box-shadow: 0 0 28px #00f2fe, inset 0 0 22px #00f2fe;
+    animation: pulseGlow 3s infinite ease-in-out;
+}
+.holo-orb-ring-inner {
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 1.5px dashed #bae6fd;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(2, 132, 199, 0.1) 70%);
+}
+.holo-logo-img {
+    width: 82px;
+    height: 82px;
+    object-fit: contain;
+    z-index: 3;
+    filter: drop-shadow(0 0 12px #ffffff);
+}
+@keyframes pulseGlow {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.04); opacity: 1; box-shadow: 0 0 42px #00f2fe, inset 0 0 30px #00f2fe; }
+}
+.holo-status-pill {
+    background: linear-gradient(90deg, rgba(0, 242, 254, 0.18) 0%, rgba(14, 165, 233, 0.08) 100%);
+    border: 1.5px solid rgba(0, 242, 254, 0.7);
+    border-radius: 999px;
+    padding: 10px 22px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
+}
+.holo-status-pill .dot {
+    width: 11px;
+    height: 11px;
+    background: #00f2fe;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 10px;
+    box-shadow: 0 0 12px #00f2fe;
+}
+.st-key-case_card,
+.st-key-parties_card,
+.st-key-narrative_card {
+    background: linear-gradient(160deg, rgba(7, 41, 92, 0.78) 0%, rgba(4, 21, 51, 0.88) 100%) !important;
+    border: 1.8px solid rgba(0, 242, 254, 0.65) !important;
+    border-radius: 24px !important;
+    padding: 22px 24px 8px 24px !important;
+    margin-bottom: 22px !important;
+    box-shadow:
+        0 10px 35px rgba(0, 0, 0, 0.55),
+        0 0 25px rgba(0, 242, 254, 0.22),
+        inset 0 0 22px rgba(0, 242, 254, 0.1) !important;
+}
+.neon-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.3);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+.neon-card-title {
+    color: #ffffff !important;
+    font-size: 1.35rem !important;
+    font-weight: 900 !important;
+    text-shadow: 0 0 14px rgba(0, 242, 254, 0.75);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.neon-badge {
+    background: linear-gradient(90deg, #00f2fe 0%, #0284c7 100%);
+    color: #011627 !important;
+    font-weight: 900;
+    font-size: 0.78rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.7);
+}
+.party-title {
+    color: #00f2fe;
+    margin: 8px 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div,
+textarea {
+    background: rgba(3, 19, 46, 0.88) !important;
+    border: 1.4px solid rgba(56, 189, 248, 0.55) !important;
+    border-radius: 14px !important;
+    color: #ffffff !important;
+    box-shadow: inset 0 0 10px rgba(0, 242, 254, 0.1) !important;
+}
+div[data-baseweb="select"] > div:focus-within,
+div[data-baseweb="input"] > div:focus-within,
+textarea:focus {
+    border-color: #00f2fe !important;
+    box-shadow: 0 0 18px rgba(0, 242, 254, 0.65), inset 0 0 12px rgba(0, 242, 254, 0.2) !important;
+}
+label, .stRadio label, .stCheckbox label {
+    color: #bae6fd !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+}
+.st-key-analyze_btn button,
+.st-key-reset_btn button,
+.st-key-print_btn button,
+.st-key-download_btn button {
+    width: 100% !important;
+    height: 54px !important;
+    background: linear-gradient(90deg, #e0f2fe 0%, #00f2fe 50%, #38bdf8 100%) !important;
+    color: #021024 !important;
+    border: 2px solid #ffffff !important;
+    border-radius: 999px !important;
+    font-size: 1.08rem !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 28px rgba(0, 242, 254, 0.75) !important;
+}
+.st-key-analyze_btn button:hover,
+.st-key-reset_btn button:hover,
+.st-key-print_btn button:hover,
+.st-key-download_btn button:hover {
+    box-shadow: 0 0 42px rgba(0, 242, 254, 1) !important;
+    background: linear-gradient(90deg, #ffffff 0%, #7dd3fc 100%) !important;
+}
+.holo-bottom-dock {
+    background: rgba(4, 22, 52, 0.9);
+    border: 1.5px solid rgba(0, 242, 254, 0.55);
+    border-radius: 999px;
+    padding: 10px 28px;
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.3);
+    color: #7dd3fc;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+.holo-bottom-dock span.active {
+    color: #00f2fe;
+    text-shadow: 0 0 10px #00f2fe;
+}
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #041531 0%, #020a18 100%) !important;
+    border-left: 2px solid #00f2fe !important;
+}
+[data-testid="stSidebar"][aria-expanded="false"] {
+    width: 0px !important;
+    min-width: 0px !important;
+    max-width: 0px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+}
+.st-key-official_report {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-radius: 20px;
+    padding: 30px !important;
+    margin-top: 8px;
+    border: 3px solid #00f2fe;
+    box-shadow: 0 0 45px rgba(0, 242, 254, 0.4);
+    direction: rtl;
+}
+.st-key-official_report,
+.st-key-official_report p,
+.st-key-official_report li,
+.st-key-official_report td,
+.st-key-official_report span,
+.st-key-official_report div {
+    color: #1e293b !important;
+}
+.st-key-official_report h2,
+.st-key-official_report h3,
+.st-key-official_report h4 {
+    color: #0f3d68 !important;
+    font-weight: 800 !important;
+    border-bottom: 2px solid #cbd5e1;
+    padding-bottom: 6px;
+}
+.st-key-official_report table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 14px 0 !important;
+    background-color: #ffffff !important;
+}
+.st-key-official_report table th {
+    background-color: #0f3d68 !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    padding: 10px 12px !important;
+    border: 1px solid #0f3d68 !important;
+    text-align: right !important;
+}
+.st-key-official_report table td {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    padding: 9px 12px !important;
+    border: 1px solid #cbd5e1 !important;
+    text-align: right !important;
+    font-weight: 600 !important;
+}
+.report-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #0f3d68;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+    gap: 16px;
+}
+.report-banner h2 {
+    margin: 0;
+    border: none !important;
+    color: #0f3d68 !important;
+}
+.report-banner p {
+    margin: 2px 0 0 0;
+    color: #475569 !important;
+    font-weight: 700;
+}
+.report-logo {
+    width: 65px;
+    height: 65px;
+    object-fit: contain;
+}
+@media (max-width: 760px) {
+    .vision-hero-card {
+        flex-direction: column-reverse;
+        text-align: center;
+        padding: 20px;
+    }
+    .vision-right { align-items: center; }
+    .vision-2030-title { font-size: 2rem; }
+    .holo-status-pill,
+    .holo-bottom-dock { flex-wrap: wrap; justify-content: center; }
+}
+@media print {
+    @page { size: A4 portrait; margin: 10mm !important; }
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main, .block-container {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+    }
+    .stApp::before, .stApp::after, header, [data-testid="stHeader"], [data-testid="stToolbar"],
+    [data-testid="stSidebar"], [data-testid="collapsedControl"],
+    .st-key-device_frame, .st-key-report_actions {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .st-key-official_report {
+        border: 1px solid #0f3d68 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        width: 100% !important;
+    }
+}
+</style>
 """
 
 
-def liability_rules(apply_chain_rules=False):
-    text = (
-        "أنت خبير تحقيق حوادث مرورية. التزم بالمرجع النظامي المعتمد المضمّن في الطلب "
-        "وبنصوص نظام المرور السعودي ولائحته التنفيذية. "
-        "إذا تعارض النص المستخرج من PDF أو انعكست أرقامه فاعتمد المرجع النظامي الثابت للمواد 50 و60 و61 و62.\n"
-        f"- النسب القياسية المعتمدة حصرياً: {' / '.join(APPROVED_RATIOS)}. "
-        "مجموع نسب أطراف الحادث يجب أن يساوي 100% دائماً.\n"
-        "- يُمنع منعاً باتاً الامتناع عن تحديد النسب أو كتابة عبارات مثل "
-        "«غير ممكن تحديد المسؤولية» أو «يتعذر تحديد النسب» أو «لا يمكن إصدار حكم». "
-        "يجب دائماً إصدار حكم فاصل بنسب معتمدة فقط (100% أو 75% أو 50% أو 25% أو 0%) "
-        "استناداً إلى وقائع السرد الحر ونقطة الاصطدام والاتجاهات، "
-        "حتى لو أدخل المستخدم أن للطرفين أولوية بالخطأ. "
-        "المحلل يحدد الأولوية الفعلية: من دخل التقاطع أولاً، ومن قدم من جهة اليمين، "
-        "ومن كان على طريق رئيسي مقابل فرعي، ثم يوزّع النسب بدقة مثل 75%-25% أو 50%-50% أو 100%-0%.\n"
-        "- قواعد هندسية ملزمة لنقطة الاصطدام وأسبقية الدخول: "
-        "إياك أن تعكس دلالة نقطة الاصطدام. إذا اصطدمت مقدمة المركبة أ بجانب أو أبواب المركبة ب في منتصف التقاطع، "
-        "فهذا يعني هندسياً أن المركبة ب المصدومة في جانبها هي التي دخلت التقاطع أولاً وقطعت مسافة داخله، وليس العكس. "
-        "في التقاطعات المتكافئة غير المنظمة بإشارات أو رجل مرور، المركبة القادمة من يمين الأخرى لها أولوية المرور (المادة 50/5). "
-        "مثال: القادم من الغرب إلى الشرق يقع على يمين القادم من الشمال إلى الجنوب.\n"
-        "- توزيع نسب الاشتراك في حوادث التقاطعات: "
-        "نسبة 100% و0% تُطبَّق فقط إذا كان أحد الطرفين ملتزماً تماماً وله أولوية مطلقة "
-        "(إشارة خضراء، أو متوقف تماماً، أو يسير في طريق رئيسي بسرعة نظامية وانتباه تام) "
-        "والطرف الآخر قطع إشارة حمراء أو دخل من فرعي إلى رئيسي فجأة أو صدمه من الخلف. "
-        "نسبة 75% و25% تُطبَّق عند الاشتراك بالخطأ مع تفاوت الجسامة: "
-        "(أ) من خالف قاعدة الأولوية في التقاطع يتحمل 75%، والطرف الذي له أولوية المرور لكنه كان يقود بسرعة زائدة "
-        "أو لم يهدئ السرعة عند التقاطع أو لم يتخذ الحيطة لتفادي الحادث رغم قدرته يتحمل 25% استناداً للمادة 50/2. "
-        "(ب) في تقاطع متكافئ بلا إشارات: الطرف الذي لم يعطِ الأولوية للقادم من اليمين أو لمن دخل التقاطع قبله "
-        "وصدمه بمقدمته في جانبه يتحمل 75%، والطرف المصدوم في جانبه إذا دخل التقاطع دون التأكد التام من خلوه "
-        "وسلامة عبوره بعد المطب يتحمل 25%. "
-        "نسبة 50% و50% تُطبَّق إذا تساوى الطرفان تماماً في الخطأ والإهمال، "
-        "مثل تقاطع متكافئ بلا إشارات دخلا معاً في نفس اللحظة وتصادمت مقدمة المركبتين بسبب إهمال مشترك وعدم التهدئة.\n"
-        "- اذكر رقم المادة والفقرة الفرعية الدقيقة (مثل 50/5 أو 50/2 أو 60 أو 61 أو 62) "
-        "واقتبس معناها النظامي الفصيح. ممنوع ذكر أرقام صفحات المصدر "
-        "وممنوع كتابة أي عبارة مثل (صفحات 50-80) بجانب المواد.\n"
-        "- النصوص المستخرجة من ملف PDF قد تكون مكسّرة أو معكوسة أو مشوهة. "
-        "ممنوع نسخها كما هي، وممنوع قراءة المادة 61 على أنها 16. "
-        "أعد صياغة نص المادة بلغة عربية فصيحة سليمة ومرتبة 100%.\n"
-        "- ممنوع استخدام رموز التنسيق أو علامات Markdown داخل الفقرات النصية، "
-        "بما في ذلك الرموز > و * و --- . الجدول النظامي فقط يُكتب بفواصل | .\n"
-        "- لا تُعد كتابة رقم المحضر أو اسم المحقق أو قائمة أطراف الحادث داخل النص؛ "
-        "هذه البيانات معروضة مسبقاً في جداول التقرير العلوية. ابدأ التحليل مباشرة.\n"
-        "- لا تذكر أسماء ملفات أو نماذج برمجية في التقرير.\n"
+def esc(value) -> str:
+    return html.escape(str(value), quote=True)
+
+
+def find_logo_file():
+    for name in LOGO_NAMES:
+        path = APP_DIR / name
+        if path.is_file():
+            return path
+    return None
+
+
+def logo_src(path: Path) -> str:
+    mime = "image/svg+xml" if path.suffix.lower() == ".svg" else "image/png"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def section_header(title: str, badge: str) -> None:
+    st.html(
+        f"""
+        <div class="neon-card-header">
+            <div class="neon-card-title">{title}</div>
+            <span class="neon-badge">{badge}</span>
+        </div>
+        """
     )
-    if apply_chain_rules:
-        text += (
-            "- هذا المحضر حادث تتابع لعدة مركبات، فطبّق القاعدتين التاليتين فقط دون تسميتهما بعناوين إنشائية: "
-            "المركبة الأولى في مقدمة الرتل التي لم تصدم مركبة أمامها ومقدمتها سليمة نسبة خطئها 0% دائماً. "
-            "إذا كانت مركبة متوقفة أو تترك مسافة آمنة واندفعت قسراً بسبب صدمة خلفية قوية لتصدم من أمامها، "
-            "تُعفى من مسؤولية الصدم الأمامي (0% عن الصدم الأمامي)، وتتحمل المركبة الصادمة من الخلف المسؤولية الكاملة.\n"
-        )
-    else:
-        text += (
-            "- هذا الحادث ليس حادث تتابع لعدة مركبات. "
-            "ممنوع منعاً باتاً تطبيق قواعد حوادث التتابع أو الدفع القسري، "
-            "وممنوع الإشارة إليهما أو كتابة أي ملاحظة عنهما، "
-            "وممنوع ذكر كلمتي «تتابع» أو «دفع قسري» في أي موضع من التقرير. "
-            "حلّل الحادث وفق نوعه الفعلي فقط (تقاطع، دوران، رجوع للخلف، تغيير مسار، إشارة، أو غيرها).\n"
-        )
-    return text
 
 
 def load_api_key():
     try:
-        secrets = st.secrets
-    except Exception as error:
-        return "", (
-            "تعذر قراءة ملف .streamlit/secrets.toml. "
-            f"السبب: {type(error).__name__}: {error}"
-        )
-
-    try:
-        raw = secrets[API_KEY_NAME]
+        value = st.secrets.get("GROQ_API_KEY")
+        if value:
+            return value
     except Exception:
-        return "", (
-            f"المطلوب هو المتغير {API_KEY_NAME} تحديداً في .streamlit/secrets.toml. "
-            "لن يُستخدم GEMINI_API_KEY أو أي مفتاح آخر."
-        )
-
-    value = str(raw or "").strip().strip('"').strip("'")
-    value = value.replace("\ufeff", "").replace("\u200b", "").replace("\u200c", "").replace("\u200d", "")
-    value = value.strip()
-    if not value:
-        return "", f"المتغير {API_KEY_NAME} موجود لكنه فارغ بعد إزالة المسافات."
-    if not value.startswith("gsk_") or len(value) <= 20:
-        return "", (
-            f"قيمة {API_KEY_NAME} غير صالحة بعد التنظيف بـ strip(). "
-            "مفتاح Groq يجب أن يبدأ بـ gsk_."
-        )
-    return value, ""
+        pass
+    return os.environ.get("GROQ_API_KEY")
 
 
-def describe_error(error):
-    text = str(error)
-    status = getattr(error, "status_code", None)
-    body = getattr(error, "body", None)
-    if status in (401, 403):
-        return (
-            f"فشل توثيق Groq (رمز {status}). تحقق من المفتاح في st.secrets. "
-            f"التفاصيل: {text}"
-        )
-    if status == 404:
-        return (
-            f"Groq أعاد 404 أثناء استدعاء النموذج. "
-            "غالباً المفتاح غير مقبول أو الطلب غير صالح. "
-            f"التفاصيل: {text}"
-            + (f" | {body}" if body else "")
-        )
-    if status == 429 or "rate limit" in text.lower() or "tpm" in text.lower():
-        return f"تم تجاوز حد الرموز مؤقتاً. التفاصيل: {text}"
-    return f"{type(error).__name__}: {text}"
+def find_law_pdf():
+    matches = sorted(APP_DIR.glob("*.pdf"))
+    return matches[0] if matches else None
 
 
-def groq_client():
-    api_key, error = load_api_key()
-    if error:
-        raise RuntimeError(error)
-    try:
-        return Groq(api_key=api_key)
-    except Exception as error:
-        raise RuntimeError(f"فشل إنشاء عميل Groq. {describe_error(error)}") from error
-
-
-def groq_chat(client, messages, temperature=0.1, max_tokens=2048, allow_empty=False):
-    last_error = None
-    for attempt in range(MAX_RETRIES):
+@st.cache_data(show_spinner=False)
+def load_traffic_law_pages(pdf_path: str, start_page: int, end_page: int) -> str:
+    extracted_text = ""
+    path = Path(pdf_path) if pdf_path else None
+    if path and path.is_file():
         try:
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+            if fitz is not None:
+                doc = fitz.open(path)
+                start_index = max(0, start_page - 1)
+                end_index = min(len(doc), end_page)
+                extracted_text = "\n".join(
+                    doc[i].get_text("text") for i in range(start_index, end_index)
+                )
+                doc.close()
+            elif PdfReader is not None:
+                reader = PdfReader(str(path))
+                start_index = max(0, start_page - 1)
+                end_index = min(len(reader.pages), end_page)
+                extracted_text = "\n".join(
+                    reader.pages[i].extract_text() or ""
+                    for i in range(start_index, end_index)
+                )
+        except Exception:
+            extracted_text = ""
+    if len(extracted_text) > 12000:
+        extracted_text = extracted_text[:12000]
+    return BUILTIN_TRAFFIC_LAW_REFERENCE + "\n\n" + extracted_text
+
+
+def clean_ai_output(text: str) -> str:
+    text = re.sub(r"\(صفحات\s*50\s*-\s*80\)", "", text)
+    text = re.sub(r"\(الصفحات\s*50\s*-\s*80\)", "", text)
+    text = re.sub(r"^>\s*", "", text, flags=re.MULTILINE)
+    return text.strip()
+
+
+def reset_all_fields():
+    st.session_state.analysis_result = None
+    st.session_state.report_meta = {}
+    st.session_state.reset_counter += 1
+
+
+def build_system_prompt(law_reference_text: str) -> str:
+    return f"""
+أنت خبير هندسة مرورية ومحقق نظامي معتمد في الإدارة العامة للمرور بالمملكة العربية السعودية.
+مهمتك تحليل الحادث المروري وتحديد نسب المسؤولية بصرامة مطلقة ودقة هندسية وقانونية استناداً إلى نظام المرور السعودي ولائحته التنفيذية (المواد 50، 60، 61، 62).
+[القواعد القانونية والهندسية الملزمة]:
+1. يُمنع منعاً باتاً الامتناع عن تحديد النسب أو كتابة "غير ممكن تحديد المسؤولية". يجب دائماً إصدار حكم فاصل بنسب قياسية معتمدة فقط: (100%، 75%، 50%، 25%، 0%) بحيث يكون مجموع نسب الأطراف = 100% دائماً.
+2. قاعدة الهندسة المرورية ونقطة الاصطدام:
+   - إذا اصطدمت (مقدمة) المركبة أ بـ (جانب / أبواب) المركبة ب في منتصف التقاطع، فهذا دليل هندسي مادي قاطع على أن (المركبة ب المصدومة في جانبها) هي التي دخلت التقاطع أولاً وقطعت مسافة داخله، وليس العكس.
+   - في التقاطعات المتكافئة غير المنظمة بإشارات، المركبة القادمة من جهة اليمين لها أولوية المرور (المادة 50/5).
+3. متى تطبق نسب (100%-0%) مقابل (75%-25%) مقابل (50%-50%)؟
+   - (100% - 0%): عندما يكون طرف ملتزماً تماماً بسرعة نظامية وأولوية مطلقة والآخر خالف صراحةً.
+   - (75% - 25%): في حالة الاشتراك بالخطأ مع تفاوت الجسامة:
+     * طرف خالف قاعدة الأولوية (يتحمل 75% وفق المادة 50/5)، والطرف الآخر له الأولوية ولكنه كان يقود بسرعة زائدة عن الحد أو لم يهدئ السرعة عند الاقتراب من التقاطع أو لم يتخذ الحيطة الكافية لتفادي الحادث (يتحمل 25% وفق المادة 50/2).
+     * أو في تقاطع غير منظم عندما يدخل طرف للتقاطع أولاً دون التثبت التام من خلوه (25%) ويصدمه الطرف الآخر بمقدمته في جانبه لعدم إعطائه الأولوية وعدم الانتباه (75%).
+   - (50% - 50%): عند تساوي الطرفين في الإهمال والخطأ المشترك بنفس الدرجة.
+4. لا تذكر مصطلح "حوادث التتابع" أو "الدفع القسري" إلا إذا كان الحادث المدخل هو فعلياً حادث تتابع لعدة مركبات.
+5. التزم بمستوى الصرامة المدخل. في الوضع الصارم لا تستخدم إلا النسب القياسية المذكورة.
+6. اكتب بلغة عربية فصيحة ورسمية ومرتبة 100%، وابدأ مباشرة بالأقسام الأربعة التالية فقط دون إعادة كتابة بيانات المحضر العلوية:
+   ### السرد الحر وتحليل الوقائع
+   ### التكييف النظامي والمواد المستند إليها
+   ### جدول المخطئ ونسب المسؤولية المعتمدة
+   (جدول Markdown رسمي بالأعمدة: | الطرف | المركبة | نسبة المسؤولية % | سبب الإدانة / الإعفاء | السند النظامي من المادة |)
+   ### الخلاصة النظامية
+[النصوص النظامية المرجعية]:
+{law_reference_text}
+"""
+
+
+def run_analysis(api_key: str, system_prompt: str, user_prompt: str):
+    client = Groq(api_key=api_key)
+    models_to_try = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"]
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            completion = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=1800,
             )
-            choices = getattr(response, "choices", None) or []
-            content = getattr(getattr(choices[0], "message", None), "content", None) if choices else None
-            if content and str(content).strip():
-                return str(content).strip()
-            if allow_empty:
-                return ""
-            last_error = RuntimeError("Groq أعاد رداً فارغاً.")
-            continue
+            response_text = completion.choices[0].message.content
+            if response_text:
+                return response_text, None
         except Exception as error:
             last_error = error
-            message = str(error).lower()
-            if allow_empty and "فارغاً" not in str(error):
-                if "rate limit" in message or "tpm" in message or getattr(error, "status_code", None) == 429:
-                    time.sleep(min(2 ** attempt + REQUEST_PAUSE_SEC, 20))
-                    continue
-                return ""
-            if "rate limit" in message or "tpm" in message or getattr(error, "status_code", None) == 429:
-                time.sleep(min(2 ** attempt + REQUEST_PAUSE_SEC, 20))
-                continue
-            raise RuntimeError(describe_error(error)) from error
-    if allow_empty:
-        return ""
-    raise RuntimeError(describe_error(last_error or RuntimeError(f"تعذر الاتصال بالنموذج {GROQ_MODEL}.")))
-
-
-def is_chain_collision(facts, narrative, party_count):
-    blob = f"{facts}\n{narrative}"
-    if any(hint in blob for hint in CHAIN_HINTS):
-        return True
-    rear_hit = any(token in blob for token in ("من الخلف", "اصطدام خلفي", "صدمة خلفية", "صدمتها من الخلف"))
-    return party_count >= 3 and rear_hit
-
-
-def clean_report_text(text, strip_chain_terms=False):
-    cleaned = str(text or "")
-    cleaned = re.sub(r"(?i)<br\s*/?>", "\n", cleaned)
-    cleaned = re.sub(r"\(?\s*صفحات?\s*50\s*[-–—/إلى]+\s*80\s*\)?", "", cleaned)
-    cleaned = re.sub(r"\(?\s*الصفحات\s*\d+\s*[-–—/إلى]+\s*\d+\s*\)?", "", cleaned)
-    cleaned = cleaned.replace("**", "")
-    cleaned = cleaned.replace("__", "")
-    cleaned = re.sub(r"(?i)traffic\.pdf", "نظام المرور ولائحته التنفيذية", cleaned)
-    if strip_chain_terms:
-        cleaned = re.sub(r"الدفع\s*القسري", "", cleaned)
-        cleaned = re.sub(r"دفع\s*قسري", "", cleaned)
-        cleaned = re.sub(r"حوادث\s*التتابع", "", cleaned)
-        cleaned = re.sub(r"حادث\s*التتابع", "", cleaned)
-        cleaned = re.sub(r"قاعدة\s*التتابع", "", cleaned)
-        cleaned = re.sub(r"التتابع", "", cleaned)
-    lines = []
-    for line in cleaned.splitlines():
-        if looks_like_table_line(line):
-            lines.append(line.replace("*", ""))
-            continue
-        line = re.sub(r"^\s*>+\s?", "", line)
-        line = line.replace(">", "").replace("*", "")
-        line = re.sub(r"-{3,}", "", line)
-        lines.append(line)
-    cleaned = "\n".join(lines)
-    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    cleaned = re.sub(
-        r"(?is)^\s*(?:بيانات\s*المحضر|بيانات\s*المحقق|أطراف\s*الحادث).*?"
-        r"(?=(?:السرد|تحليل\s*الوقائع|التكييف|1[\.\)]\s*))",
-        "",
-        cleaned,
-        count=1,
-    )
-    cleaned = re.sub(
-        r"(?m)^\s*(المحضر|المحقق|التاريخ والوقت|الموقع|نوع الموقع)\s*[:：].*$",
-        "",
-        cleaned,
-    )
-    return cleaned.strip()
-
-
-def unique_headers(headers):
-    seen = {}
-    result = []
-    for header in headers:
-        name = header or "عمود"
-        count = seen.get(name, 0) + 1
-        seen[name] = count
-        result.append(name if count == 1 else f"{name} ({count})")
-    return result
-
-
-def split_table_row(line):
-    stripped = line.strip().strip("|")
-    return [cell.strip() for cell in stripped.split("|")]
-
-
-def is_separator_row(cells):
-    if not cells:
-        return False
-    return all(re.fullmatch(r":?-{2,}:?", (cell or "").replace(" ", "")) for cell in cells)
-
-
-def looks_like_table_line(line):
-    text = (line or "").strip()
-    if not text or text.count("|") < 1:
-        return False
-    if text.startswith("|") and text.endswith("|"):
-        return True
-    return text.count("|") >= 2
-
-
-def parse_markdown_table(lines):
-    rows = []
-    for line in lines:
-        cells = split_table_row(line)
-        if not cells or is_separator_row(cells):
-            continue
-        rows.append(cells)
-    if len(rows) < 2:
-        return None
-    width = max(len(row) for row in rows)
-    padded = [row + [""] * (width - len(row)) for row in rows]
-    headers = unique_headers(padded[0])
-    body = padded[1:]
-    frame = pd.DataFrame(body, columns=headers)
-    if len(frame.columns) == len(RATIO_TABLE_HEADERS):
-        frame.columns = RATIO_TABLE_HEADERS
-    return frame
-
-
-def parse_report_blocks(text):
-    lines = clean_report_text(text).splitlines()
-    blocks = []
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        if looks_like_table_line(line):
-            table_lines = []
-            while index < len(lines) and (looks_like_table_line(lines[index]) or not lines[index].strip()):
-                if lines[index].strip():
-                    table_lines.append(lines[index])
-                index += 1
-            frame = parse_markdown_table(table_lines)
-            if frame is not None:
-                blocks.append(("table", frame))
-            else:
-                blocks.append(("text", "\n".join(table_lines)))
-            continue
-        text_lines = []
-        while index < len(lines) and not looks_like_table_line(lines[index]):
-            text_lines.append(lines[index])
-            index += 1
-        chunk = "\n".join(text_lines).strip()
-        if chunk:
-            blocks.append(("text", chunk))
-    return blocks
-
-
-def facts_frame(facts):
-    rows = []
-    for line in clean_report_text(facts).splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if ":" in line:
-            key, value = line.split(":", 1)
-            rows.append({"البند": key.strip(), "البيان": value.strip()})
-        else:
-            rows.append({"البند": "ملاحظة", "البيان": line})
-    if not rows:
-        return pd.DataFrame([{"البند": "بيانات المحضر", "البيان": "غير متوفرة"}])
-    return pd.DataFrame(rows)
-
-
-def html_table(frame):
-    if frame is None or frame.empty:
-        return ""
-    head = "".join(f"<th>{html.escape(str(col))}</th>" for col in frame.columns)
-    body_rows = []
-    for _, row in frame.iterrows():
-        cells = "".join(f"<td>{html.escape(str(value))}</td>" for value in row.tolist())
-        body_rows.append(f"<tr>{cells}</tr>")
-    return (
-        '<table class="report-table"><thead><tr>'
-        + head
-        + "</tr></thead><tbody>"
-        + "".join(body_rows)
-        + "</tbody></table>"
-    )
-
-
-def text_to_html(text):
-    parts = []
-    for paragraph in clean_report_text(text).split("\n"):
-        raw = paragraph.strip().strip("#").strip()
-        if not raw:
-            continue
-        heading = re.sub(r"^#{1,6}\s*", "", raw)
-        if paragraph.strip().startswith("#") or raw.endswith(":"):
-            parts.append(f"<h3>{html.escape(heading)}</h3>")
-        else:
-            parts.append(f"<p>{html.escape(raw)}</p>")
-    return "".join(parts)
-
-
-def official_report_body(facts, report):
-    facts_table = html_table(facts_frame(facts))
-    report_parts = []
-    for kind, payload in parse_report_blocks(report):
-        if kind == "table":
-            report_parts.append(html_table(payload))
-        else:
-            report_parts.append(text_to_html(payload))
-    report_html = "".join(report_parts) or f"<p>{html.escape(clean_report_text(report))}</p>"
-    return f"""
-      <div class="print-brand">
-        <h2>حسم الذكي للحوادث المرورية</h2>
-        <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
-      </div>
-      <h3>بيانات المحضر</h3>
-      {facts_table}
-      <h3>التقرير النظامي</h3>
-      <div class="official-report">{report_html}</div>
-    """
-
-
-def report_download_html(facts, report):
-    body = official_report_body(facts, report)
-    return f"""<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title>التقرير الرسمي للحادث</title>
-  <style>
-    @page {{ size: A4; margin: 16mm; }}
-    body {{
-      font-family: Tahoma, Arial, sans-serif;
-      direction: rtl;
-      text-align: right;
-      color: #000000;
-      background: #ffffff;
-      line-height: 1.85;
-      margin: 0;
-      padding: 8mm;
-    }}
-    .print-brand {{
-      border-bottom: 3px solid #0f3d5e;
-      padding-bottom: 10px;
-      margin-bottom: 18px;
-    }}
-    h1, h2, h3 {{ color: #0f3d5e; margin: 16px 0 8px; }}
-    .print-brand h2 {{ font-size: 22px; margin: 0; color: #0f3d5e; }}
-    p {{ margin: 0 0 10px; color: #111827; }}
-    table {{ width: 100%; border-collapse: collapse; margin: 10px 0 16px; background: #ffffff; }}
-    th {{ background: #0f3d5e; color: #ffffff; padding: 8px; border: 1px solid #0b2e47; }}
-    td {{
-      border: 1px solid #c5d0db;
-      padding: 8px;
-      background: #ffffff;
-      color: #111827 !important;
-    }}
-    tr:nth-child(even) td {{
-      background: #f8f9fa;
-      color: #111827 !important;
-    }}
-    .footer {{ margin-top: 28px; font-size: 12px; color: #4a5b6b; }}
-    @media print {{
-      html, body, p, h1, h2, h3, div {{
-        background: #ffffff !important;
-        color: #000000 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }}
-      table th, table thead tr, .report-table th {{
-        background-color: #0f3d68 !important;
-        color: #ffffff !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }}
-      table td, .report-table td {{
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        border: 1px solid #cbd5e1 !important;
-      }}
-      table tr:nth-child(even) td, .report-table tr:nth-child(even) td {{
-        background-color: #f8fafc !important;
-      }}
-    }}
-  </style>
-</head>
-<body>
-  {body}
-  <div class="footer">أُعد وفق نظام المرور السعودي ولائحته التنفيذية. النسب المعتمدة فقط: 0٪، 25٪، 50٪، 75٪، 100٪.</div>
-</body>
-</html>
-"""
-
-
-def render_official_report(facts, report):
-    body = official_report_body(facts, report)
-    st.markdown(
-        f'<div class="print-document" id="official-print-report">{body}</div>',
-        unsafe_allow_html=True,
-    )
-
-
-@st.cache_data
-def load_traffic_law():
-    try:
-        with open(PDF_PATH, "rb") as file:
-            reader = PyPDF2.PdfReader(file)
-            total = len(reader.pages)
-            start_idx = LAW_PAGE_START - 1
-            end_idx = LAW_PAGE_END
-            if total <= start_idx:
-                return 0, ""
-            selected = reader.pages[start_idx:end_idx]
-            parts = []
-            for page in selected:
-                text = page.extract_text() or ""
-                if text.strip():
-                    parts.append(text.strip())
-            return len(selected), "\n".join(parts)
-    except Exception:
-        return 0, ""
-
-
-def split_chunks(text):
-    pieces = re.split(r"(?=المادة\s+\d+|مادة\s+\d+)", text or "")
-    chunks = []
-    buffer = ""
-    for piece in pieces:
-        piece = piece.strip()
-        if not piece:
-            continue
-        if len(buffer) + len(piece) + 1 <= CHUNK_SIZE:
-            buffer = f"{buffer}\n{piece}".strip()
-            continue
-        if buffer:
-            chunks.append(buffer)
-        if len(piece) <= CHUNK_SIZE:
-            buffer = piece
-            continue
-        step = max(CHUNK_SIZE - CHUNK_OVERLAP, 1)
-        for start in range(0, len(piece), step):
-            chunks.append(piece[start:start + CHUNK_SIZE])
-        buffer = ""
-    if buffer:
-        chunks.append(buffer)
-    return chunks
-
-
-@st.cache_data
-def cached_chunks(text):
-    return split_chunks(text)
-
-
-def tokenize(text):
-    return set(re.findall(r"[\w\u0600-\u06FF]+", (text or "").lower()))
-
-
-def select_chunks(chunks, query, limit=MAX_MAP_CHUNKS):
-    query_tokens = tokenize(query)
-    ranked = []
-    for index, chunk in enumerate(chunks):
-        overlap = len(query_tokens & tokenize(chunk))
-        keywords = sum(1 for word in LAW_KEYWORDS if word in chunk)
-        ranked.append((overlap * 2 + keywords, index, chunk[:CHUNK_SIZE]))
-    ranked.sort(key=lambda item: (-item[0], item[1]))
-    selected = [chunk for score, _index, chunk in ranked[:limit] if score > 0]
-    return selected or [chunk[:CHUNK_SIZE] for _, _, chunk in ranked[:limit]]
-
-
-def extract_articles(client, chunk, query, apply_chain_rules):
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                f"{liability_rules(apply_chain_rules)}\n\n"
-                f"{BUILTIN_LEGAL_REFERENCE}\n"
-                "في هذه المرحلة استخرج المواد والفقرات ذات الصلة من الجزء المرفق. "
-                "إذا انعكست الأرقام فصححها وفق المرجع المعتمد (61 ليست 16). "
-                "أعد صياغة النص بعربية فصيحة ولا تنسخ النص المشوه."
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                "وقائع الحادث:\n"
-                f"{(query or '')[:MAX_QUERY_CHARS]}\n\n"
-                "جزء من نظام المرور:\n"
-                f"{(chunk or '')[:CHUNK_SIZE]}"
-            ),
-        },
-    ]
-    try:
-        return groq_chat(
-            client,
-            messages,
-            temperature=0,
-            max_tokens=700,
-            allow_empty=True,
-        )
-    except Exception:
-        return ""
-
-
-def build_final_prompt(law_excerpts, facts, narrative, apply_chain_rules):
-    ratios = " / ".join(APPROVED_RATIOS)
-    table_header = " | ".join(RATIO_TABLE_HEADERS)
-    table_sep = " | ".join(["---"] * len(RATIO_TABLE_HEADERS))
-    return f"""{liability_rules(apply_chain_rules)}
-
-المرجع النظامي المعتمد (إلزامي وأعلى حجية من استخراج PDF):
-{BUILTIN_LEGAL_REFERENCE}
-
-المهمة:
-حلّل الحادث اعتماداً على وقائع المحقق والمرجع النظامي المعتمد، مع الاستئناس بالمواد المساندة المستخرجة.
-
-قواعد ملزمة إضافية:
-1) اعتمد المواد 50 و50/2 و50/5 و60 و61 و62 من المرجع الثابت عند التقاطعات والأولوية والمسؤولية.
-2) نسب المسؤولية المسموحة فقط: {ratios}، ومجموعها بين الأطراف 100% دائماً.
-3) التركيبات المعتمدة مثل: 100% و0%، أو 75% و25%، أو 50% و50%.
-4) ممنوع رفض الحكم. حتى مع تعارض إدخال الأولوية من المستخدم، حدّد الأولوية الفعلية من الاتجاهات ونقطة الاصطدام. إذا صدمت مقدمة طرف جانب/أبواب الطرف الآخر في منتصف التقاطع فالمصدوم جانبياً دخل أولاً. القادم من اليمين له الأولوية في التقاطع المتكافئ غير المنظم (50/5). لا تستخدم 100%-0% إلا لأولوية مطلقة والتزام تام؛ وفي الاشتراك مع تفاوت الجسامة استخدم 75%-25% (المخالف للأولوية 75% ومن لم يهدئ رغم أولويته 25% وفق 50/2)؛ وإذا تساوى الإهمال ودخل الطرفان معاً وتصادمت المقدمتان استخدم 50%-50%.
-5) لا تُعد رقم المحضر ولا اسم المحقق ولا قائمة الأطراف في النص.
-6) أسلوب رسمي ومباشر. الفقرات بلا > أو * أو --- . الجدول فقط بفواصل |.
-
-صيغة التقرير حصرياً بهذا الترتيب:
-1. السرد الحر وتحليل الوقائع
-2. التكييف النظامي والمواد المستند إليها
-3. جدول المخطئ ونسب المسؤولية المعتمدة
-4. الخلاصة النظامية
-
-جدول النسب في القسم 3 إلزامي وبالأعمدة التالية حرفياً:
-{table_header}
-{table_sep}
-صف واحد لكل طرف.
-
-المواد المساندة المستخرجة:
-
-{law_excerpts}
-
-بيانات المحقق (للاستعمال الداخلي فقط ولا تُعاد كتابتها):
-
-{facts}
-
-السرد الحر:
-{narrative}
-"""
-
-
-def analyze_accident(law_text, facts, narrative, apply_chain_rules):
-    client = groq_client()
-    chunks = cached_chunks(law_text)
-    if not chunks:
-        raise RuntimeError("تعذر تقسيم نص نظام المرور إلى أجزاء.")
-
-    query = f"{facts}\n{narrative}"
-    selected = select_chunks(chunks, query)
-    extracted = []
-    progress = st.progress(0, text="بدء التحليل المجزأ...")
-    total = len(selected) + 1
-
-    for index, chunk in enumerate(selected, start=1):
-        progress.progress(index / total, text=f"معالجة الجزء {index} من {len(selected)}")
-        try:
-            excerpt = extract_articles(client, chunk, query, apply_chain_rules) or ""
-        except Exception:
-            excerpt = ""
-        compact = excerpt.strip()
-        if compact and not compact.startswith("لا يوجد"):
-            extracted.append(compact)
-        time.sleep(REQUEST_PAUSE_SEC)
-
-    supporting = "\n\n".join(extracted).strip() or "\n\n".join(selected)
-    law_excerpts = (
-        BUILTIN_LEGAL_REFERENCE
-        + "\n\nمواد مساندة مستخرجة:\n"
-        + supporting[:MAX_EXTRACT_CHARS]
-    )
-
-    progress.progress(1.0, text="صياغة التقرير النهائي...")
-    messages = [
-        {
-            "role": "system",
-            "content": liability_rules(apply_chain_rules),
-        },
-        {"role": "user", "content": build_final_prompt(law_excerpts, facts, narrative, apply_chain_rules)},
-    ]
-    report = groq_chat(client, messages, temperature=0.1, max_tokens=2048)
-    progress.empty()
-    return clean_report_text(report, strip_chain_terms=not apply_chain_rules)
-
-
-REPORT_STATE_KEYS = ("official_report", "official_facts", "apply_chain_rules")
-
-
-def widget_key(name):
-    return f"{name}_{st.session_state.get('reset_counter', 0)}"
-
-
-def clear_report_state():
-    for key in REPORT_STATE_KEYS:
-        st.session_state.pop(key, None)
-
-
-def start_new_case():
-    clear_report_state()
-    st.session_state.reset_counter = int(st.session_state.get("reset_counter", 0)) + 1
-    st.rerun()
-
-
-def collect_party_facts(party_count):
-    facts = []
-    columns = st.columns(party_count)
-    for index, column in enumerate(columns, start=1):
-        with column:
-            st.markdown(f"**الطرف {index}**")
-            role = st.selectbox(
-                f"صفة الطرف {index}",
-                ["سائق", "راكب", "مشاة", "دراجة", "مركبة ثقيلة", "أخرى"],
-                key=widget_key(f"role_{index}"),
-            )
-            vehicle = st.text_input(f"نوع المركبة {index}", key=widget_key(f"veh_{index}"))
-            plate = st.text_input(f"رقم اللوحة {index}", key=widget_key(f"plate_{index}"))
-            direction = st.selectbox(
-                f"الاتجاه {index}",
-                ["شمال", "جنوب", "شرق", "غرب", "غير محدد"],
-                key=widget_key(f"dir_{index}"),
-            )
-            lane = st.selectbox(
-                f"المسار {index}",
-                ["أيمن", "أوسط", "أيسر", "كتف الطريق", "غير محدد"],
-                key=widget_key(f"lane_{index}"),
-            )
-            move = st.selectbox(f"المناورة {index}", MANEUVERS, key=widget_key(f"move_{index}"))
-            light = st.selectbox(f"الإشارة أمام الطرف {index}", SIGNALS, key=widget_key(f"light_{index}"))
-            priority = st.selectbox(f"الأولوية {index}", PRIORITIES, key=widget_key(f"prio_{index}"))
-            speed = st.selectbox(
-                f"السرعة التقديرية {index}",
-                ["ضمن الحد", "تجاوز بسيط", "تجاوز كبير", "متوقف", "غير معلوم"],
-                key=widget_key(f"speed_{index}"),
-            )
-            facts.append(
-                f"الطرف {index}: الصفة={role}، المركبة={vehicle or 'غير مذكورة'}، "
-                f"اللوحة={plate or 'غير مذكورة'}، الاتجاه={direction}، المسار={lane}، "
-                f"المناورة={move}، الإشارة={light}، الأولوية={priority}، السرعة={speed}"
-            )
-    return facts
-
-
-def build_facts_block(
-    report_no,
-    investigator_name,
-    investigator_id,
-    accident_date,
-    accident_time,
-    city,
-    district,
-    road_type,
-    weather,
-    road_status,
-    lighting,
-    injuries,
-    damage,
-    analysis_mode,
-    cite_articles,
-    show_ratios_only,
-    party_facts,
-    include_sketch_notes,
-    sketch_notes,
-    include_witnesses,
-    witness_notes,
-    investigator_notes,
-):
-    facts = "\n".join(
-        [
-            f"المحضر: {report_no or 'غير مذكور'}",
-            f"المحقق: {investigator_name or 'غير مذكور'} | الرقم: {investigator_id or 'غير مذكور'}",
-            f"التاريخ والوقت: {accident_date} {accident_time}",
-            f"الموقع: {city or 'غير مذكور'} - {district or 'غير مذكور'}",
-            f"نوع الموقع: {road_type}",
-            f"الطقس: {weather} | الطريق: {road_status} | الإنارة: {lighting}",
-            f"الإصابات: {injuries} | الأضرار: {damage}",
-            f"مستوى الصرامة: {analysis_mode}",
-            f"إلزام المواد النظامية: {'نعم' if cite_articles else 'لا'}",
-            f"قصر النسب المعتمدة: {'نعم' if show_ratios_only else 'لا'}",
-            "أطراف الحادث:",
-            *party_facts,
-        ]
-    )
-    if include_sketch_notes and sketch_notes.strip():
-        facts += f"\nملاحظات الكروكي:\n{sketch_notes.strip()}"
-    if include_witnesses and witness_notes.strip():
-        facts += f"\nإفادات الشهود:\n{witness_notes.strip()}"
-    if investigator_notes.strip():
-        facts += f"\nملاحظات المحقق:\n{investigator_notes.strip()}"
-    return facts
-
+    return None, last_error
+
+
+st.set_page_config(
+    page_title="حسم الذكي | Vision 2030 GovTech",
+    page_icon="🚓",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 if "reset_counter" not in st.session_state:
     st.session_state.reset_counter = 0
+if "analysis_result" not in st.session_state:
+    st.session_state.analysis_result = None
+if "report_meta" not in st.session_state:
+    st.session_state.report_meta = {}
 
-pages_count, traffic_law_text = load_traffic_law()
-api_key, key_error = load_api_key()
-
-st.markdown(
-    f"""
-    <div class="hasm-hero">
-      <div class="hasm-mark">
-        <img src="{BRAND_LOGO_URI}" alt="شعار الإدارة العامة للمرور">
-      </div>
-      <div>
-        <h1>حسم الذكي للحوادث المرورية</h1>
-        <p>منصة استدلال نظامي لتحليل المسؤولية المرورية بالذكاء الاصطناعي</p>
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if pages_count > 0 and traffic_law_text:
-    st.success("✅ تم ربط النظام بنجاح (مرتبط بنظام المرور السعودي ولائحته التنفيذية)")
-elif pages_count > 0:
-    st.error("❌ تم العثور على traffic.pdf لكن تعذر استخراج النص منه.")
+logo_file = find_logo_file()
+logo_uri = logo_src(logo_file) if logo_file else None
+if logo_uri:
+    center_hologram = (
+        f'<img src="{logo_uri}" class="holo-logo-img" alt="شعار المرور">'
+    )
+    watermark_bg = f"""
+    .stApp::after {{
+        content: "";
+        position: fixed;
+        top: 52%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 480px;
+        height: 480px;
+        background-image: url("{logo_uri}");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+        opacity: 0.04;
+        pointer-events: none;
+        z-index: 0;
+    }}
+    """
 else:
-    st.error("❌ لم يتم العثور على ملف traffic.pdf")
+    center_hologram = FALLBACK_ORB_SVG
+    watermark_bg = ""
 
-if key_error:
-    st.error(f"❌ {key_error}")
+st.html(PAGE_CSS.replace("/*WATERMARK*/", watermark_bg))
 
-with st.sidebar:
-    st.header("لوحة تحكم المحقق")
-    st.caption("خيارات التحكم المتقدم لبناء محضر التحليل")
+law_pdf = find_law_pdf()
+law_reference_text = load_traffic_law_pages(str(law_pdf or ""), 50, 80)
+rc = st.session_state.reset_counter
 
-    st.subheader("بيانات المحضر")
-    investigator_name = st.text_input("اسم المحقق", key=widget_key("investigator_name"))
-    investigator_id = st.text_input("الرقم الوظيفي / العسكري", key=widget_key("investigator_id"))
-    report_no = st.text_input("رقم البلاغ / المحضر", key=widget_key("report_no"))
-    accident_date = st.date_input("تاريخ الحادث", key=widget_key("accident_date"))
-    accident_time = st.time_input("وقت الحادث", key=widget_key("accident_time"))
-    city = st.text_input("المدينة", key=widget_key("city"))
-    district = st.text_input("الحي / الشارع", key=widget_key("district"))
-
-    st.subheader("ظروف الموقع")
-    road_type = st.selectbox(
-        "نوع الموقع",
-        ["طريق مستقيم", "تقاطع", "دوار", "إشارة ضوئية", "مخرج / مدخل", "موقف / Reverse", "أخرى"],
-        key=widget_key("road_type"),
+with st.container(key="device_frame", border=False):
+    st.html(
+        f"""
+        <div class="vision-hero-card">
+            <div class="vision-right">
+                <div class="top-mini-badge">⚡ منظومة الذكاء الاصطناعي السيادي</div>
+                <div class="vision-2030-title">VISION <span>2030</span></div>
+                <h1 class="hasm-main-title">حسم الذكي للحوادث المرورية</h1>
+                <p class="hasm-subtitle">منصة التحليل الهندسي والاستدلال النظامي الذكي وفق نظام المرور السعودي</p>
+            </div>
+            <div class="holo-orb-wrapper">
+                <div class="holo-orb-ring-outer"></div>
+                <div class="holo-orb-ring-inner"></div>
+                {center_hologram}
+            </div>
+        </div>
+        <div class="holo-status-pill">
+            <div><span class="dot"></span><strong>حالة النظام:</strong> مرتبط بنظام المرور السعودي ولائحته التنفيذية</div>
+            <div style="color:#00f2fe; font-weight:800;">AI ENGINE ACTIVE</div>
+        </div>
+        """
     )
-    weather = st.selectbox("حالة الطقس", ["صحو", "أمطار", "ضباب", "غبار / عاصفة", "أخرى"], key=widget_key("weather"))
-    road_status = st.selectbox("حالة الطريق", ["جاف", "مبلل", "زلِق", "أعمال صيانة", "حفر / عوائق"], key=widget_key("road_status"))
-    lighting = st.selectbox("الإنارة", ["نهار", "ليل مضاء", "ليل غير مضاء"], key=widget_key("lighting"))
-    injuries = st.selectbox("الإصابات", ["لا توجد", "إصابة بسيطة", "إصابة بليغة", "وفاة"], key=widget_key("injuries"))
-    damage = st.selectbox("الأضرار المادية", ["بسيطة", "متوسطة", "جسيمة"], key=widget_key("damage"))
 
-    st.subheader("ضوابط التحليل")
-    analysis_mode = st.selectbox("مستوى الصرامة", ["صارم نظامي", "مبدئي للمحقق", "مراجعة نهائية"], key=widget_key("analysis_mode"))
-    cite_articles = st.checkbox("إلزام جلب رقم المادة ومقتطفها من نظام المرور ولائحته التنفيذية", value=True, key=widget_key("cite_articles"))
-    show_ratios_only = st.checkbox("قصر النسب على 0% / 25% / 50% / 75% / 100%", value=True, key=widget_key("show_ratios_only"))
-    include_sketch_notes = st.checkbox("إدخال ملاحظات الكروكي ضمن التحليل", value=True, key=widget_key("include_sketch_notes"))
-    include_witnesses = st.checkbox("إدخال إفادة الشهود ضمن التحليل", value=False, key=widget_key("include_witnesses"))
+    with st.container(key="case_card", border=False):
+        section_header("🛡️ بيانات المحضر وظروف الموقع الميدانية", "بيانات المباشرة")
+        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+        with m_col1:
+            inv_name = st.text_input("اسم المحقق", value="فهد أبو عقيلة", key=f"inv_name_{rc}")
+            inv_id = st.text_input("الرقم الوظيفي / العسكري", value="7373", key=f"inv_id_{rc}")
+        with m_col2:
+            report_no = st.text_input("رقم البلاغ / المحضر", placeholder="600498765", key=f"report_no_{rc}")
+            city = st.text_input("المدينة / الموقع", value="جازان - العارضة", key=f"city_{rc}")
+        with m_col3:
+            site_type = st.selectbox(
+                "نوع الموقع",
+                [
+                    "تقاطع رباعي غير منظم",
+                    "تقاطع رباعي منظم بإشارات",
+                    "تقاطع حرف T (فرعي مع رئيسي)",
+                    "طريق رئيسي مستقيم",
+                    "طريق فرعي / داخلي",
+                    "دوار",
+                    "فتحة دوران (U-Turn)",
+                    "منحنى / منعطف",
+                    "مدخل أو مخرج خدمة / محطة / موقف",
+                ],
+                key=f"site_type_{rc}",
+            )
+            weather = st.selectbox(
+                "حالة الطقس",
+                ["صحو", "ممطر", "غبار / ضباب", "رياح شديدة"],
+                key=f"weather_{rc}",
+            )
+        with m_col4:
+            road_cond = st.selectbox(
+                "حالة الطريق",
+                ["جاف", "مبتل / زلق", "أعمال طريق", "غير معبد"],
+                key=f"road_cond_{rc}",
+            )
+            lighting = st.selectbox(
+                "الإنارة",
+                ["نهار", "ليل - إنارة جيدة", "ليل - بدون إنارة"],
+                key=f"lighting_{rc}",
+            )
+        s_col1, s_col2, s_col3 = st.columns(3)
+        with s_col1:
+            injuries = st.selectbox(
+                "الإصابات",
+                ["لا توجد", "إصابات بسيطة", "إصابات متوسطة / بليغة", "وفيات"],
+                key=f"injuries_{rc}",
+            )
+        with s_col2:
+            damages = st.selectbox(
+                "الأضرار المادية",
+                ["بسيطة", "متوسطة", "تلف كبير"],
+                key=f"damages_{rc}",
+            )
+        with s_col3:
+            strict_mode = st.selectbox(
+                "مستوى الصرامة النظامية",
+                ["صارم نظامي (100% / 75% / 50% / 25% / 0%)", "قياسي استدلالي"],
+                key=f"strict_mode_{rc}",
+            )
 
-st.markdown("---")
-st.subheader("أطراف الحادث وخيارات المناورة")
-party_count = st.radio("عدد الأطراف", [2, 3, 4], horizontal=True, index=0, key=widget_key("party_count"))
-party_facts = collect_party_facts(party_count)
-
-st.markdown("---")
-left, right = st.columns(2)
-with left:
-    sketch_notes = st.text_area("ملاحظات الكروكي / الرسم الميداني", height=120, key=widget_key("sketch_notes"))
-with right:
-    witness_notes = st.text_area("إفادات الشهود", height=120, key=widget_key("witness_notes"))
-
-accident_desc = st.text_area(
-    "السرد الحر لتفاصيل الحادث (المركبات، الاتجاهات، الإشارات، التسلسل الزمني):",
-    height=160,
-    key=widget_key("accident_desc"),
-)
-investigator_notes = st.text_area("ملاحظات المحقق الخاصة", height=90, key=widget_key("investigator_notes"))
-
-start_col, reset_col = st.columns(2)
-with start_col:
-    start_clicked = st.button("🔍 بدء التحليل النظامي", type="primary", width="stretch")
-with reset_col:
-    reset_clicked = st.button("🗑️ مسح البيانات / حادث جديد", type="secondary", width="stretch")
-
-if reset_clicked:
-    start_new_case()
-
-if start_clicked:
-    if not accident_desc.strip():
-        st.warning("الرجاء كتابة تفاصيل الحادث أولاً.")
-    elif key_error:
-        st.warning(f"لا يمكن بدء التحليل: {key_error}")
-    elif not traffic_law_text:
-        st.warning("لا يمكن بدء التحليل دون نص نظام المرور المستخرج من traffic.pdf.")
-    else:
-        clear_report_state()
-        facts = build_facts_block(
-            report_no,
-            investigator_name,
-            investigator_id,
-            accident_date,
-            accident_time,
-            city,
-            district,
-            road_type,
-            weather,
-            road_status,
-            lighting,
-            injuries,
-            damage,
-            analysis_mode,
-            cite_articles,
-            show_ratios_only,
-            party_facts,
-            include_sketch_notes,
-            sketch_notes,
-            include_witnesses,
-            witness_notes,
-            investigator_notes,
-        )
-        apply_chain_rules = is_chain_collision(facts, accident_desc, party_count)
-        try:
-            report = analyze_accident(traffic_law_text, facts, accident_desc, apply_chain_rules)
-            st.session_state["official_report"] = report
-            st.session_state["official_facts"] = clean_report_text(facts)
-            st.session_state["apply_chain_rules"] = apply_chain_rules
-        except Exception as error:
-            st.error(f"فشل التحليل دون إيقاف التطبيق. السبب الحقيقي: {describe_error(error)}")
-
-if st.session_state.get("official_report"):
-    cleaned_report = clean_report_text(
-        st.session_state["official_report"],
-        strip_chain_terms=not st.session_state.get("apply_chain_rules", False),
-    )
-    cleaned_facts = st.session_state.get("official_facts", "")
-    render_official_report(cleaned_facts, cleaned_report)
-    print_col, save_col = st.columns(2)
-    with print_col:
-        components.html(
-            """
-            <style>
-              html, body { margin: 0; padding: 0; background: transparent; }
-              button {
-                display: block;
-                width: 100%;
-                height: 48px;
-                box-sizing: border-box;
-                margin: 0;
-                padding: 0;
-                font-size: 16px;
-                font-weight: 700;
-                cursor: pointer;
-                border: 1px solid #0b2e47;
-                border-radius: 8px;
-                background: #0f3d5e;
-                color: #ffffff;
-                font-family: Tahoma, Arial, sans-serif;
-              }
-            </style>
-            <button onclick="window.parent.print();">🖨️ طباعة التقرير الرسمي</button>
-            """,
-            height=48,
-            scrolling=False,
-        )
-    with save_col:
-        st.download_button(
-            "💾 حفظ وتحميل التقرير",
-            data=report_download_html(cleaned_facts, cleaned_report),
-            file_name="hasm-official-report.html",
-            mime="text/html",
+    with st.container(key="parties_card", border=False):
+        section_header("🚗 أطراف الحادث وخيارات المناورة الميدانية", "تحليل المركبات")
+        num_parties = st.segmented_control(
+            "عدد المركبات / الأطراف المشتركة في الحادث",
+            [2, 3, 4],
+            default=2,
+            required=True,
+            key=f"num_parties_{rc}",
             width="stretch",
         )
+        parties_data = []
+        p_cols = st.columns(2)
+        for i in range(num_parties):
+            with p_cols[i % 2]:
+                st.html(f'<h4 class="party-title">🔹 بيانات الطرف ({i + 1})</h4>')
+                r1, r2 = st.columns(2)
+                with r1:
+                    p_role = st.selectbox(
+                        f"صفة الطرف {i + 1}",
+                        ["سائق", "مشاة", "مالك مركبة متوقفة"],
+                        key=f"p_role_{i}_{rc}",
+                    )
+                    p_veh = st.text_input(
+                        f"نوع المركبة {i + 1}",
+                        placeholder="مثال: إف جي / صالون / كامري",
+                        key=f"p_veh_{i}_{rc}",
+                    )
+                    p_plate = st.text_input(
+                        f"رقم اللوحة {i + 1}",
+                        placeholder="ح س ص 4444",
+                        key=f"p_plate_{i}_{rc}",
+                    )
+                    p_dir = st.selectbox(
+                        f"الاتجاه {i + 1}",
+                        ["شمال", "جنوب", "شرق", "غرب", "شمال شرقي", "شمال غربي", "جنوب شرقي", "جنوب غربي"],
+                        key=f"p_dir_{i}_{rc}",
+                    )
+                with r2:
+                    p_lane = st.selectbox(
+                        f"المسار {i + 1}",
+                        ["أيمن", "أوسط", "أيسر", "مسار خدمة", "كتف الطريق", "داخل التقاطع"],
+                        key=f"p_lane_{i}_{rc}",
+                    )
+                    p_man = st.selectbox(
+                        f"المناورة {i + 1}",
+                        MANEUVER_OPTIONS,
+                        key=f"p_man_{i}_{rc}",
+                    )
+                    p_sig = st.selectbox(
+                        f"الإشارة {i + 1}",
+                        ["لا توجد إشارة", "إشارة خضراء", "إشارة حمراء", "إشارة صفراء متقطعة", "لوحة قف (STOP)", "لوحة أعطِ الأولوية"],
+                        key=f"p_sig_{i}_{rc}",
+                    )
+                    p_prio = st.selectbox(
+                        f"الأولوية {i + 1}",
+                        ["له أولوية", "عليه أولوية للغير (يجب التوقف/التهدئة)", "متكافئ / غير محدد"],
+                        index=0 if i == 0 else 1,
+                        key=f"p_prio_{i}_{rc}",
+                    )
+                p_spd = st.selectbox(
+                    f"السرعة التقديرية للطرف {i + 1}",
+                    ["ضمن الحد النظامي", "زائدة عن الحد النظامي", "سرعة عالية جداً (تهور)", "متوقف تماماً"],
+                    key=f"p_spd_{i}_{rc}",
+                )
+                parties_data.append(
+                    {
+                        "طرف": f"الطرف {i + 1}",
+                        "الصفة": p_role,
+                        "المركبة": p_veh.strip() or f"مركبة {i + 1}",
+                        "اللوحة": p_plate.strip() or "غير محدد",
+                        "الاتجاه": p_dir,
+                        "المسار": p_lane,
+                        "المناورة": p_man,
+                        "الإشارة": p_sig,
+                        "الأولوية": p_prio,
+                        "السرعة": p_spd,
+                    }
+                )
+
+    with st.container(key="narrative_card", border=False):
+        section_header("📐 التحليل الهندسي الميداني والسرد الحر للواقعة", "الابتكار التقني")
+        sk_col1, sk_col2 = st.columns(2)
+        with sk_col1:
+            sketch_notes = st.text_area(
+                "ملاحظات الكروكي / الرسم الميداني (نقطة الاصطدام، آثار الفرملة، المطبات)",
+                placeholder="مثال: نقطة الاصطدام في منتصف التقاطع، مقدمة المركبة الأولى في الباب الأيمن للثانية...",
+                height=95,
+                key=f"sketch_notes_{rc}",
+            )
+        with sk_col2:
+            witness_notes = st.text_area(
+                "إفادات الشهود / الكاميرات وملاحظات المحقق",
+                placeholder="أقوال الشهود أو ملاحظات المباشر الميداني...",
+                height=95,
+                key=f"witness_notes_{rc}",
+            )
+        narrative = st.text_area(
+            "السرد الحر لتفاصيل الحادث (المركبات، الاتجاهات، التسلسل الزمني، كيفية وقوع التصادم)",
+            placeholder="اكتب تفاصيل الحادث هنا ليقوم محرك حسم الذكي بتكييف المواد النظامية وتحديد نسب المسؤولية بدقة...",
+            height=130,
+            key=f"narrative_{rc}",
+        )
+        feedback = st.empty()
+        btn_c1, btn_c2 = st.columns(2, vertical_alignment="bottom")
+        with btn_c1:
+            analyze_clicked = st.button(
+                "⚡ بدء التحليل النظامي الفوري",
+                key="analyze_btn",
+                width="stretch",
+            )
+        with btn_c2:
+            st.button(
+                "🗑️ مسح البيانات / حادث جديد",
+                key="reset_btn",
+                on_click=reset_all_fields,
+                width="stretch",
+            )
+
+    st.html(
+        """
+        <div class="holo-bottom-dock">
+            <span class="active">● الاستدلال النظامي</span>
+            <span>◎ الهندسة المرورية</span>
+            <span>◈ المواد (50 - 62)</span>
+            <span>❖ التقارير الرسمية</span>
+        </div>
+        """
+    )
+
+if analyze_clicked:
+    st.session_state.analysis_result = None
+    if not narrative.strip():
+        feedback.warning("يرجى كتابة تفاصيل الحادث في خانة السرد الحر قبل بدء التحليل.")
+    else:
+        api_key = load_api_key()
+        if not api_key:
+            feedback.error("لم يتم العثور على مفتاح GROQ_API_KEY في الأسرار أو متغيرات البيئة.")
+        elif Groq is None:
+            feedback.error("مكتبة groq غير مثبتة.")
+        else:
+            parties_summary = "\n".join(
+                [
+                    (
+                        f"- {p['طرف']}: الصفة ({p['الصفة']})، المركبة ({p['المركبة']})، "
+                        f"اللوحة ({p['اللوحة']})، الاتجاه ({p['الاتجاه']})، المسار ({p['المسار']})، "
+                        f"المناورة ({p['المناورة']})، الإشارة ({p['الإشارة']})، "
+                        f"الأولوية المدخلة ({p['الأولوية']})، السرعة ({p['السرعة']})."
+                    )
+                    for p in parties_data
+                ]
+            )
+            sketch_line = f"ملاحظات الكروكي: {sketch_notes}" if sketch_notes.strip() else ""
+            witness_line = f"إفادات الشهود والملاحظات: {witness_notes}" if witness_notes.strip() else ""
+            user_prompt = f"""
+بيانات الموقع: {site_type} | الطقس: {weather} | الطريق: {road_cond} | الإنارة: {lighting}
+الإصابات: {injuries} | الأضرار المادية: {damages}
+مستوى الصرامة النظامية: {strict_mode}
+الأطراف:
+{parties_summary}
+السرد الحر:
+{narrative}
+{sketch_line}
+{witness_line}
+"""
+            with feedback.container():
+                with st.spinner("جاري تشغيل محرك الاستدلال النظامي وتحليل هندسة الاصطدام..."):
+                    response_text, last_error = run_analysis(
+                        api_key,
+                        build_system_prompt(law_reference_text),
+                        user_prompt,
+                    )
+            if response_text:
+                st.session_state.analysis_result = clean_ai_output(response_text)
+                st.session_state.report_meta = {
+                    "report_no": report_no.strip() or "غير محدد",
+                    "inv_name": inv_name.strip() or "غير محدد",
+                    "inv_id": inv_id.strip() or "غير محدد",
+                    "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "location": city,
+                    "site_type": site_type,
+                    "env": f"الطقس: {weather} | الطريق: {road_cond} | الإنارة: {lighting}",
+                    "inj_dmg": f"الإصابات: {injuries} | الأضرار: {damages}",
+                    "strict_mode": strict_mode,
+                    "parties": parties_data,
+                }
+            else:
+                feedback.error(f"تعذر إتمام التحليل حالياً: {last_error}")
+
+if st.session_state.analysis_result:
+    meta = st.session_state.report_meta
+    party_rows = []
+    for party in meta.get("parties", []):
+        details = (
+            f"الصفة: {esc(party['الصفة'])} | اللوحة: {esc(party['اللوحة'])} | "
+            f"الاتجاه: {esc(party['الاتجاه'])} | المسار: {esc(party['المسار'])} | "
+            f"المناورة: {esc(party['المناورة'])} | الإشارة: {esc(party['الإشارة'])} | "
+            f"الأولوية: {esc(party['الأولوية'])} | السرعة: {esc(party['السرعة'])}"
+        )
+        party_rows.append(
+            "<tr>"
+            f"<td style=\"width:18%; font-weight:800;\">{esc(party['طرف'])} ({esc(party['المركبة'])})</td>"
+            f"<td>{details}</td>"
+            "</tr>"
+        )
+    header_logo = (
+        f'<img src="{logo_uri}" class="report-logo" alt="شعار المرور">'
+        if logo_uri
+        else ""
+    )
+    with st.container(key="official_report", border=False):
+        st.html(
+            f"""
+            <div class="report-banner">
+                <div>
+                    <h2>حسم الذكي للحوادث المرورية</h2>
+                    <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
+                </div>
+                {header_logo}
+            </div>
+            <h3>بيانات المحضر وأطراف الحادث</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:22%;">البند</th>
+                        <th>البيان</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>رقم المحضر</td><td>{esc(meta.get("report_no", ""))}</td></tr>
+                    <tr><td>المحقق المباشر</td><td>{esc(meta.get("inv_name", ""))} | الرقم: {esc(meta.get("inv_id", ""))}</td></tr>
+                    <tr><td>التاريخ والوقت</td><td>{esc(meta.get("datetime", ""))}</td></tr>
+                    <tr><td>الموقع ونوعه</td><td>{esc(meta.get("location", ""))} ({esc(meta.get("site_type", ""))})</td></tr>
+                    <tr><td>ظروف الموقع</td><td>{esc(meta.get("env", ""))}</td></tr>
+                    <tr><td>الإصابات والأضرار</td><td>{esc(meta.get("inj_dmg", ""))}</td></tr>
+                    <tr><td>مستوى الصرامة</td><td>{esc(meta.get("strict_mode", ""))}</td></tr>
+                    {"".join(party_rows)}
+                </tbody>
+            </table>
+            """
+        )
+        st.markdown(st.session_state.analysis_result)
+
+    full_txt_report = f"""حسم الذكي للحوادث المرورية - تقرير نظامي رسمي
+=================================================
+رقم المحضر: {meta.get("report_no")}
+المحقق: {meta.get("inv_name")} ({meta.get("inv_id")})
+التاريخ والوقت: {meta.get("datetime")}
+الموقع: {meta.get("location")} - {meta.get("site_type")}
+=================================================
+{st.session_state.analysis_result}
+"""
+    with st.container(key="report_actions", border=False):
+        act_col1, act_col2 = st.columns(2, vertical_alignment="bottom")
+        with act_col1:
+            print_clicked = st.button(
+                "🖨️ طباعة التقرير الرسمي (PDF)",
+                key="print_btn",
+                width="stretch",
+            )
+        with act_col2:
+            st.download_button(
+                label="💾 حفظ وتحميل التقرير",
+                data=full_txt_report.encode("utf-8"),
+                file_name=f"Hasm_Report_{meta.get('report_no')}.txt",
+                mime="text/plain",
+                key="download_btn",
+                width="stretch",
+            )
+        if print_clicked:
+            st.html("<script>window.print();</script>", unsafe_allow_javascript=True)
