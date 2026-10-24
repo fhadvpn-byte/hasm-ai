@@ -369,77 +369,124 @@ label, .stRadio label, .stCheckbox label {
     margin: 0 !important;
     border: none !important;
 }
+#official-report-container,
 .st-key-official_report {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-radius: 20px;
-    padding: 30px !important;
-    margin-top: 8px;
-    border: 3px solid #00f2fe;
-    box-shadow: 0 0 45px rgba(0, 242, 254, 0.4);
-    direction: rtl;
+    background: radial-gradient(circle at 50% 0%, #0a3570 0%, #041938 55%, #020b1c 100%) !important;
+    color: #ffffff !important;
+    border-radius: 26px !important;
+    padding: 28px 32px !important;
+    margin-top: 24px !important;
+    border: 2.5px solid #00f2fe !important;
+    box-shadow: 0 0 40px rgba(0, 242, 254, 0.45), inset 0 0 25px rgba(0, 242, 254, 0.18) !important;
+    direction: rtl !important;
+    position: relative !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
 }
-.st-key-official_report,
-.st-key-official_report p,
-.st-key-official_report li,
-.st-key-official_report td,
-.st-key-official_report span,
-.st-key-official_report div {
-    color: #1e293b !important;
+.report-holo-header {
+    background: linear-gradient(135deg, rgba(8, 52, 115, 0.92) 0%, rgba(3, 24, 58, 0.96) 100%) !important;
+    border: 2px solid #00f2fe !important;
+    border-radius: 20px !important;
+    padding: 18px 24px !important;
+    margin-bottom: 20px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.35), inset 0 0 18px rgba(0, 242, 254, 0.2) !important;
 }
+#official-report-container .report-vision-tag,
+.st-key-official_report .report-vision-tag,
+.report-vision-tag {
+    font-family: 'Orbitron', 'Tajawal', sans-serif !important;
+    font-size: 1.9rem !important;
+    font-weight: 900 !important;
+    color: #ffffff !important;
+    letter-spacing: 1.5px !important;
+    text-shadow: 0 0 15px #00f2fe !important;
+    margin: 0 0 4px 0 !important;
+    line-height: 1.2 !important;
+}
+#official-report-container .report-vision-tag span,
+.st-key-official_report .report-vision-tag span,
+.report-vision-tag span {
+    color: #00f2fe !important;
+}
+#official-report-container h2,
+#official-report-container h3,
+#official-report-container h4,
 .st-key-official_report h2,
 .st-key-official_report h3,
 .st-key-official_report h4 {
-    color: #0f3d68 !important;
-    font-weight: 800 !important;
-    border-bottom: 2px solid #cbd5e1;
-    padding-bottom: 6px;
+    background: linear-gradient(90deg, rgba(0, 242, 254, 0.22) 0%, rgba(4, 25, 56, 0.4) 100%) !important;
+    color: #00f2fe !important;
+    font-weight: 900 !important;
+    border-right: 4px solid #00f2fe !important;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.4) !important;
+    border-radius: 10px !important;
+    padding: 8px 14px !important;
+    margin-top: 18px !important;
+    margin-bottom: 12px !important;
+    text-shadow: 0 0 10px rgba(0, 242, 254, 0.5) !important;
 }
+#official-report-container p,
+#official-report-container li,
+#official-report-container div,
+.st-key-official_report p,
+.st-key-official_report li,
+.st-key-official_report div {
+    color: #e0f2fe !important;
+    line-height: 1.8 !important;
+    font-size: 0.98rem !important;
+}
+#official-report-container strong,
+.st-key-official_report strong {
+    color: #ffffff !important;
+}
+#official-report-container table,
 .st-key-official_report table {
     width: 100% !important;
-    border-collapse: collapse !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
     margin: 14px 0 !important;
-    background-color: #ffffff !important;
+    background: rgba(4, 22, 52, 0.85) !important;
+    border: 1.5px solid #00f2fe !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    box-shadow: 0 0 20px rgba(0, 242, 254, 0.2) !important;
 }
-.st-key-official_report table th {
-    background-color: #0f3d68 !important;
-    color: #ffffff !important;
-    font-weight: 800 !important;
-    padding: 10px 12px !important;
-    border: 1px solid #0f3d68 !important;
+#official-report-container table th,
+#official-report-container table thead tr,
+.st-key-official_report table th,
+.st-key-official_report table thead tr {
+    background: linear-gradient(90deg, #0284c7 0%, #00f2fe 100%) !important;
+    color: #011627 !important;
+    font-weight: 900 !important;
+    font-size: 0.96rem !important;
+    padding: 11px 14px !important;
+    border-bottom: 2px solid #ffffff !important;
     text-align: right !important;
 }
+#official-report-container table td,
 .st-key-official_report table td {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-    padding: 9px 12px !important;
-    border: 1px solid #cbd5e1 !important;
+    background: rgba(6, 30, 68, 0.82) !important;
+    color: #f0f9ff !important;
+    padding: 10px 14px !important;
+    border-bottom: 1px solid rgba(0, 242, 254, 0.25) !important;
+    border-left: 1px solid rgba(0, 242, 254, 0.15) !important;
     text-align: right !important;
     font-weight: 600 !important;
 }
-.report-banner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 3px solid #0f3d68;
-    padding-bottom: 12px;
-    margin-bottom: 14px;
-    gap: 16px;
-}
-.report-banner h2 {
-    margin: 0;
-    border: none !important;
-    color: #0f3d68 !important;
-}
-.report-banner p {
-    margin: 2px 0 0 0;
-    color: #475569 !important;
-    font-weight: 700;
+#official-report-container table tr:nth-child(even) td,
+.st-key-official_report table tr:nth-child(even) td {
+    background: rgba(10, 42, 90, 0.88) !important;
+    color: #ffffff !important;
 }
 .report-logo {
     width: 65px;
     height: 65px;
     object-fit: contain;
+    filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.85));
 }
 @media (max-width: 760px) {
     .vision-hero-card {
@@ -453,14 +500,15 @@ label, .stRadio label, .stCheckbox label {
     .holo-bottom-dock { flex-wrap: wrap; justify-content: center; }
 }
 @media print {
-    @page { size: A4 portrait; margin: 10mm !important; }
+    @page { size: A4 portrait; margin: 8mm !important; }
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+        color-adjust: exact !important;
     }
     html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main, .block-container {
-        background: #ffffff !important;
-        color: #000000 !important;
+        background: #020b1c !important;
+        color: #ffffff !important;
         padding: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
@@ -472,13 +520,28 @@ label, .stRadio label, .stCheckbox label {
         height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
-    }
-    .st-key-official_report {
-        border: 1px solid #0f3d68 !important;
         box-shadow: none !important;
+    }
+    #official-report-container,
+    .st-key-official_report {
         margin: 0 !important;
-        padding: 10px !important;
         width: 100% !important;
+        background: radial-gradient(circle at 50% 0%, #0a3570 0%, #041938 55%, #020b1c 100%) !important;
+        color: #ffffff !important;
+        border: 2.5px solid #00f2fe !important;
+        box-shadow: 0 0 40px rgba(0, 242, 254, 0.45), inset 0 0 25px rgba(0, 242, 254, 0.18) !important;
+    }
+    #official-report-container table th,
+    #official-report-container table thead tr,
+    .st-key-official_report table th,
+    .st-key-official_report table thead tr {
+        background: linear-gradient(90deg, #0284c7 0%, #00f2fe 100%) !important;
+        color: #011627 !important;
+    }
+    #official-report-container table td,
+    .st-key-official_report table td {
+        background: rgba(6, 30, 68, 0.82) !important;
+        color: #f0f9ff !important;
     }
 }
 </style>
@@ -966,9 +1029,10 @@ if st.session_state.analysis_result:
     with st.container(key="official_report", border=False):
         st.html(
             f"""
-            <div class="report-banner">
+            <div class="report-holo-header">
                 <div>
-                    <h2>حسم الذكي للحوادث المرورية</h2>
+                    <p class="report-vision-tag">VISION <span>2030</span></p>
+                    <p><strong>حسم الذكي للحوادث المرورية</strong></p>
                     <p>تقرير نظامي رسمي لتحليل المسؤولية المرورية</p>
                 </div>
                 {header_logo}
