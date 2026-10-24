@@ -188,14 +188,16 @@ st.markdown(
 
 GROQ_MODEL = "openai/gpt-oss-120b"
 API_KEY_NAME = "GROQ_API_KEY"
-APPROVED_RATIOS = ("100%", "75%", "50%", "25%")
+APPROVED_RATIOS = ("0%", "25%", "50%", "75%", "100%")
 PDF_PATH = "traffic.pdf"
-CHUNK_SIZE = 2200
-CHUNK_OVERLAP = 180
-MAX_MAP_CHUNKS = 6
-MAX_EXTRACT_CHARS = 8000
-MAX_QUERY_CHARS = 1500
-REQUEST_PAUSE_SEC = 1.4
+LAW_PAGE_START = 50
+LAW_PAGE_END = 80
+CHUNK_SIZE = 1800
+CHUNK_OVERLAP = 150
+MAX_MAP_CHUNKS = 4
+MAX_EXTRACT_CHARS = 4500
+MAX_QUERY_CHARS = 900
+REQUEST_PAUSE_SEC = 1.8
 MAX_RETRIES = 4
 LAW_KEYWORDS = (
     "حادث", "مسؤولية", "خطأ", "تقاطع", "إشارة", "تجاوز", "أولوية", "مسار",
@@ -218,6 +220,21 @@ MANEUVERS = [
 ]
 SIGNALS = ["لا توجد إشارة", "خضراء", "صفراء", "حمراء", "وميض", "غير معلوم"]
 PRIORITIES = ["له أولوية", "عليه أولوية للغير", "غير محدد"]
+SYSTEM_LIABILITY_RULES = (
+    "أنت خبير تحقيق حوادث مرورية. التزم حرفياً وبصرامة تامة بالنصوص المستخلصة "
+    f"من صفحات نظام المرور ولائحته التنفيذية (الصفحات {LAW_PAGE_START} إلى {LAW_PAGE_END}) فقط. "
+    "ممنوع أي اجتهاد أو معرفة عامة خارج هذا النص.\n"
+    f"- النسب القياسية المعتمدة حصرياً: {' / '.join(APPROVED_RATIOS)}. "
+    "مجموع نسب أطراف الحادث يجب أن يساوي 100% دائماً.\n"
+    "- حوادث التتابع: المركبة الأولى في مقدمة الرتل التي لم تصدم مركبة أمامها ومقدمتها سليمة "
+    "نسبة خطئها 0% دائماً.\n"
+    "- الدفع القسري: إذا كانت مركبة متوقفة أو تترك مسافة آمنة واندفعت قسراً بسبب صدمة خلفية قوية "
+    "لتصدم من أمامها، تُعفى من مسؤولية الصدم الأمامي (0% عن الصدم الأمامي)، "
+    "وتتحمل المركبة الصادمة من الخلف المسؤولية الكاملة.\n"
+    "- ألزم ذكر رقم المادة والفقرة الفرعية الدقيقة كما ترد في الصفحات 50-80 "
+    "(مثل 50/2/4 أو 60/1) مع اقتباس النص النظامي قرين كل نسبة خطأ.\n"
+    "لا تذكر أسماء ملفات أو نماذج برمجية في التقرير."
+)
 
 
 def load_api_key():
@@ -498,7 +515,7 @@ def report_download_html(facts, report):
   {facts_table}
   <h2>التقرير النظامي</h2>
   {report_html}
-  <div class="footer">أُعد وفق نظام المرور ولائحته التنفيذية. النسب المعتمدة فقط: 100٪، 75٪، 50٪، 25٪.</div>
+  <div class="footer">أُعد وفق صفحات تنظيمات السير والحوادث (50-80) من نظام المرور ولائحته التنفيذية. النسب المعتمدة فقط: 0٪، 25٪، 50٪، 75٪، 100٪.</div>
 </body>
 </html>
 """
@@ -540,9 +557,18 @@ def load_traffic_law():
     try:
         with open(PDF_PATH, "rb") as file:
             reader = PyPDF2.PdfReader(file)
-            pages = [page.extract_text() or "" for page in reader.pages]
-            text = "\n".join(part.strip() for part in pages if part and part.strip())
-            return len(reader.pages), text
+            total = len(reader.pages)
+            start_idx = LAW_PAGE_START - 1
+            end_idx = LAW_PAGE_END
+            if total <= start_idx:
+                return 0, ""
+            selected = reader.pages[start_idx:end_idx]
+            parts = []
+            for page in selected:
+                text = page.extract_text() or ""
+                if text.strip():
+                    parts.append(text.strip())
+            return len(selected), "\n".join(parts)
     except Exception:
         return 0, ""
 
@@ -598,8 +624,9 @@ def extract_articles(client, chunk, query):
         {
             "role": "system",
             "content": (
-                "استخرج فقط المواد النظامية ذات الصلة بالحادث من الجزء المرفق. "
-                "إن لم توجد مادة منطبقة فاكتب: لا يوجد. لا تحدد نسب المسؤولية هنا."
+                f"{SYSTEM_LIABILITY_RULES}\n"
+                "في هذه المرحلة استخرج فقط المواد والفقرات ذات الصلة من الجزء المرفق "
+                "(الصفحات 50-80). إن لم توجد مادة منطبقة فاكتب: لا يوجد."
             ),
         },
         {
@@ -617,7 +644,7 @@ def extract_articles(client, chunk, query):
             client,
             messages,
             temperature=0,
-            max_tokens=2048,
+            max_tokens=700,
             allow_empty=True,
         )
     except Exception:
@@ -626,18 +653,19 @@ def extract_articles(client, chunk, query):
 
 def build_final_prompt(law_excerpts, facts, narrative):
     ratios = " / ".join(APPROVED_RATIOS)
-    return f"""أنت خبير تحقيق حوادث مرورية وفق نظام المرور السعودي المعتمد في المواد المستخرجة فقط.
+    return f"""{SYSTEM_LIABILITY_RULES}
 
 المهمة:
-حلّل الحادث اعتماداً على وقائع المحقق والمواد المجمّعة من نظام المرور ولائحته التنفيذية، ثم حدد نسب المسؤولية النظامية المعتمدة فقط.
+حلّل الحادث اعتماداً على وقائع المحقق والمواد المجمّعة حصرياً من الصفحات {LAW_PAGE_START} إلى {LAW_PAGE_END} من نظام المرور ولائحته التنفيذية.
 
-قواعد ملزمة:
-1) اعتمد حصرياً على المواد المرفقة. ممنوع الاجتهاد خارج النص.
-2) نسب المسؤولية المسموحة فقط: {ratios}.
-3) التركيبات المعتمدة مثل: 100% لطرف، أو 75% و25%، أو 50% و50%.
-4) اذكر رقم المادة ومقتطفها لكل نسبة.
-5) إذا نقصت الوقائع، بيّن النقص ولا تخترع مادة أو نسبة.
-6) أسلوب رسمي ومباشر.
+قواعد ملزمة إضافية:
+1) ممنوع الاجتهاد خارج النص المستخلص من الصفحات {LAW_PAGE_START}-{LAW_PAGE_END}.
+2) نسب المسؤولية المسموحة فقط: {ratios}، ومجموعها بين الأطراف 100% دائماً.
+3) التركيبات المعتمدة مثل: 100%، أو 75% و25%، أو 50% و50%، أو 0% مع تحمل طرف آخر 100%.
+4) اذكر رقم المادة والفقرة الفرعية الدقيقة (مثل 50/2/4 أو 60/1) واقتبس النص النظامي قرين كل نسبة.
+5) طبق قاعدة التتابع وقاعدة الدفع القسري حرفياً عند انطباق الوقائع.
+6) إذا نقصت الوقائع، بيّن النقص ولا تخترع مادة أو نسبة.
+7) أسلوب رسمي ومباشر.
 
 صيغة التقرير:
 - بيانات المحضر والوقائع
@@ -691,11 +719,7 @@ def analyze_accident(law_text, facts, narrative):
     messages = [
         {
             "role": "system",
-            "content": (
-                "أنت خبير تحقيق حوادث مرورية. "
-                f"التزم بالمواد المرفقة وبالنسب {', '.join(APPROVED_RATIOS)} فقط. "
-                "لا تذكر أسماء ملفات أو نماذج برمجية في التقرير."
-            ),
+            "content": SYSTEM_LIABILITY_RULES,
         },
         {"role": "user", "content": build_final_prompt(law_excerpts, facts, narrative)},
     ]
@@ -809,7 +833,10 @@ st.markdown(
 )
 
 if pages_count > 0 and traffic_law_text:
-    st.success(f"✅ تم ربط النظام بنجاح (تمت قراءة {pages_count} صفحة من نظام المرور)")
+    st.success(
+        f"✅ تم تحميل صفحات تنظيمات السير والحوادث (الصفحات {LAW_PAGE_START} - {LAW_PAGE_END}) "
+        f"وعددها {pages_count} صفحة"
+    )
 elif pages_count > 0:
     st.error("❌ تم العثور على traffic.pdf لكن تعذر استخراج النص منه.")
 else:
@@ -845,7 +872,7 @@ with st.sidebar:
     st.subheader("ضوابط التحليل")
     analysis_mode = st.selectbox("مستوى الصرامة", ["صارم نظامي", "مبدئي للمحقق", "مراجعة نهائية"])
     cite_articles = st.checkbox("إلزام جلب رقم المادة ومقتطفها من نظام المرور ولائحته التنفيذية", value=True)
-    show_ratios_only = st.checkbox("قصر النسب على 100% / 75% / 50% / 25%", value=True)
+    show_ratios_only = st.checkbox("قصر النسب على 0% / 25% / 50% / 75% / 100%", value=True)
     include_sketch_notes = st.checkbox("إدخال ملاحظات الكروكي ضمن التحليل", value=True)
     include_witnesses = st.checkbox("إدخال إفادة الشهود ضمن التحليل", value=False)
 
