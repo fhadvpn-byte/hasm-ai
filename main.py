@@ -263,6 +263,25 @@ html, body, [class*="css"], .stApp {{
     align-items: center;
     gap: 10px;
 }}
+.holo-mark {{
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+    display: inline-block;
+    border-radius: 3px;
+    border: 2px solid #00f2fe;
+    background: rgba(0, 242, 254, 0.35);
+    box-shadow: 0 0 10px #00f2fe, inset 0 0 6px #00f2fe;
+    transform: rotate(45deg);
+}}
+.party-heading {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #00f2fe !important;
+    font-weight: 800;
+    margin-bottom: 8px;
+}}
 .neon-badge {{
     background: linear-gradient(90deg, #00f2fe 0%, #0284c7 100%);
     color: #011627 !important;
@@ -431,6 +450,9 @@ div.stButton > button:hover, div.stDownloadButton > button:hover {{
     margin-top: 18px !important;
     margin-bottom: 12px !important;
     text-shadow: 0 0 10px rgba(0, 242, 254, 0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
 }}
 #official-report-container p,
 #official-report-container li,
@@ -783,7 +805,7 @@ st.markdown(f"""
 st.markdown("""
 <div class="neon-section-card">
     <div class="neon-card-header">
-        <div class="neon-card-title">🛡️ بيانات المحضر وظروف الموقع الميدانية</div>
+        <div class="neon-card-title"><span class="holo-mark" aria-hidden="true"></span>بيانات المحضر وظروف الموقع الميدانية</div>
         <span class="neon-badge">بيانات المباشرة</span>
     </div>
 """, unsafe_allow_html=True)
@@ -826,7 +848,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("""
 <div class="neon-section-card">
     <div class="neon-card-header">
-        <div class="neon-card-title">🚗 أطراف الحادث وخيارات المناورة الميدانية</div>
+        <div class="neon-card-title"><span class="holo-mark" aria-hidden="true"></span>أطراف الحادث وخيارات المناورة الميدانية</div>
         <span class="neon-badge">تحليل المركبات</span>
     </div>
 """, unsafe_allow_html=True)
@@ -858,7 +880,10 @@ parties_data = []
 p_cols = st.columns(2)
 for i in range(num_parties):
     with p_cols[i % 2]:
-        st.markdown(f"<h4 style='color:#00f2fe; margin-bottom:8px;'>🔹 بيانات الطرف ({i+1})</h4>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h4 class='party-heading'><span class='holo-mark' aria-hidden='true'></span>بيانات الطرف ({i+1})</h4>",
+            unsafe_allow_html=True,
+        )
         r1, r2 = st.columns(2)
         with r1:
             p_role = st.selectbox(f"صفة الطرف {i+1}", ["سائق", "مشاة", "مالك مركبة متوقفة"], key=f"p_role_{i}_{rc}")
@@ -888,7 +913,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("""
 <div class="neon-section-card">
     <div class="neon-card-header">
-        <div class="neon-card-title">📐 التحليل الهندسي الميداني والسرد الحر للواقعة</div>
+        <div class="neon-card-title"><span class="holo-mark" aria-hidden="true"></span>التحليل الهندسي الميداني والسرد الحر للواقعة</div>
         <span class="neon-badge">الابتكار التقني</span>
     </div>
 """, unsafe_allow_html=True)
@@ -1074,7 +1099,7 @@ if st.session_state.analysis_result:
                 {center_hologram_content}
             </div>
         </div>
-        <h3>🛡️ بيانات المحضر وأطراف الحادث</h3>
+        <h3 class="case-heading"><span class="holo-mark" aria-hidden="true"></span>بيانات المحضر وأطراف الحادث</h3>
         <table>
             <thead>
                 <tr>
