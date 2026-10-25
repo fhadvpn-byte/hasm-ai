@@ -111,8 +111,24 @@ html, body, [class*="css"], .stApp {{
     z-index: 0;
 }}
 {watermark_bg}
-[data-testid="stHeader"] {{
-    background: transparent !important;
+header,
+[data-testid="stHeader"],
+[data-testid="stHeaderActionElements"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stMainMenu"],
+#MainMenu,
+.stAppDeployButton,
+.stDeployButton,
+footer,
+[data-testid="stFooter"] {{
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
 }}
 .block-container {{
     max-width: 1050px !important;
