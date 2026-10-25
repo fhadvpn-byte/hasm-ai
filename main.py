@@ -876,7 +876,17 @@ st.markdown("""
         <span class="neon-badge">تحليل المركبات</span>
     </div>
 """, unsafe_allow_html=True)
-num_parties = st.radio("عدد المركبات / الأطراف المشتركة في الحادث:", [2, 3, 4], horizontal=True, key=f"num_parties_{rc}")
+num_parties = int(
+    st.number_input(
+        "عدد المركبات / الأطراف المشتركة في الحادث",
+        min_value=2,
+        max_value=15,
+        value=2,
+        step=1,
+        key=f"party_count_{rc}",
+    )
+)
+num_parties = max(2, min(15, num_parties))
 MANEUVER_OPTIONS = [
     "سير مستقيم",
     "متوقف (وقوف نظامي / عند إشارة)",
@@ -901,8 +911,9 @@ MANEUVER_OPTIONS = [
     "اندفاع قسري (نتيجة صدم خلفي)"
 ]
 parties_data = []
+primary_count = min(num_parties, 4)
 p_cols = st.columns(2)
-for i in range(num_parties):
+for i in range(primary_count):
     with p_cols[i % 2]:
         st.markdown(
             f"<h4 class='party-heading'><span class='holo-mark' aria-hidden='true'></span>بيانات الطرف ({i+1})</h4>",
@@ -932,6 +943,39 @@ for i in range(num_parties):
             "الأولوية": p_prio,
             "السرعة": p_spd
         })
+if num_parties > 4:
+    for row_start in range(4, num_parties, 2):
+        extra_cols = st.columns(2)
+        for offset in range(2):
+            i = row_start + offset
+            if i >= num_parties:
+                continue
+            with extra_cols[offset]:
+                with st.expander(f"مركبة إضافية — الطرف {i + 1}", expanded=False):
+                    r1, r2 = st.columns(2)
+                    with r1:
+                        p_role = st.selectbox(f"صفة الطرف {i+1}", ["سائق", "مشاة", "مالك مركبة متوقفة"], key=f"p_role_{i}_{rc}")
+                        p_veh = st.text_input(f"نوع المركبة {i+1}", placeholder="مثال: كامري / صالون", key=f"p_veh_{i}_{rc}")
+                        p_plate = st.text_input(f"رقم اللوحة {i+1}", placeholder="ح س ص 4444", key=f"p_plate_{i}_{rc}")
+                        p_dir = st.selectbox(f"الاتجاه {i+1}", ["شمال", "جنوب", "شرق", "غرب", "شمال شرقي", "شمال غربي", "جنوب شرقي", "جنوب غربي"], key=f"p_dir_{i}_{rc}")
+                    with r2:
+                        p_lane = st.selectbox(f"المسار {i+1}", ["أيمن", "أوسط", "أيسر", "مسار خدمة", "كتف الطريق", "داخل التقاطع"], key=f"p_lane_{i}_{rc}")
+                        p_man = st.selectbox(f"المناورة {i+1}", MANEUVER_OPTIONS, key=f"p_man_{i}_{rc}")
+                        p_sig = st.selectbox(f"الإشارة {i+1}", ["لا توجد إشارة", "إشارة خضراء", "إشارة حمراء", "إشارة صفراء متقطعة", "لوحة قف (STOP)", "لوحة أعطِ الأولوية"], key=f"p_sig_{i}_{rc}")
+                        p_prio = st.selectbox(f"الأولوية {i+1}", ["له أولوية", "عليه أولوية للغير (يجب التوقف/التهدئة)", "متكافئ / غير محدد"], index=1, key=f"p_prio_{i}_{rc}")
+                    p_spd = st.selectbox(f"السرعة التقديرية للطرف {i+1}", ["ضمن الحد النظامي", "زائدة عن الحد النظامي", "سرعة عالية جداً (تهور)", "متوقف تماماً"], key=f"p_spd_{i}_{rc}")
+                    parties_data.append({
+                        "طرف": f"الطرف {i+1}",
+                        "الصفة": p_role,
+                        "المركبة": p_veh if p_veh.strip() else f"مركبة {i+1}",
+                        "اللوحة": p_plate if p_plate.strip() else "غير محدد",
+                        "الاتجاه": p_dir,
+                        "المسار": p_lane,
+                        "المناورة": p_man,
+                        "الإشارة": p_sig,
+                        "الأولوية": p_prio,
+                        "السرعة": p_spd
+                    })
 st.markdown("</div>", unsafe_allow_html=True)
 # 3. التحليل الهندسي والسرد الحر
 st.markdown("""
@@ -990,10 +1034,16 @@ if analyze_clicked:
             st.error("❌ مكتبة `groq` غير مثبتة.")
         else:
             with st.spinner("⚡ جاري تشغيل محرك الاستدلال النظامي بدقة مطابقة للائحة الرسمية..."):
-                parties_summary = "\n".join([
-                    f"- {p['طرف']}: الصفة ({p['الصفة']})، المركبة ({p['المركبة']})، اللوحة ({p['اللوحة']})، الاتجاه ({p['الاتجاه']})، المسار ({p['المسار']})، المناورة ({p['المناورة']})، الإشارة ({p['الإشارة']})، الأولوية ({p['الأولوية']})، السرعة ({p['السرعة']})."
-                    for p in parties_data
-                ])
+                if num_parties > 4:
+                    parties_summary = "\n".join([
+                        f"- {p['طرف']}: {p['الصفة']}/{p['المركبة']}/{p['اللوحة']} | {p['الاتجاه']}/{p['المسار']} | {p['المناورة']} | {p['الإشارة']} | {p['الأولوية']} | {p['السرعة']}"
+                        for p in parties_data
+                    ])
+                else:
+                    parties_summary = "\n".join([
+                        f"- {p['طرف']}: الصفة ({p['الصفة']})، المركبة ({p['المركبة']})، اللوحة ({p['اللوحة']})، الاتجاه ({p['الاتجاه']})، المسار ({p['المسار']})، المناورة ({p['المناورة']})، الإشارة ({p['الإشارة']})، الأولوية ({p['الأولوية']})، السرعة ({p['السرعة']})."
+                        for p in parties_data
+                    ])
                 system_prompt = f"""
 أنت محقق نظامي وهندسي معتمد لدى الإدارة العامة للمرور. حلّل الواقعة بعمق هندسي وقانوني مطلق، واستخدم فقط أرقام المواد الصحيحة من المرجع المركّز أدناه دون خلط أو اختراع تفريعات.
 [إلزام التحليل العميق]:
@@ -1009,6 +1059,7 @@ if analyze_clicked:
 ### الخلاصة النظامية
 [مرجع قانوني مركّز]:
 {law_reference_text}
+في حوادث التتابع المتعددة، طبّق المادة (50/2/2) لعدم ترك مسافة آمنة، وميّز هندسياً في جدول النسب بين الاصطدام المستقل وبين الدفع القسري من الخلف للمركبة المتوقفة نظامياً (0% إعفاء، وتُحمّل المسؤولية على الدافع).
 """
                 # ضغط مدخلات المستخدم أيضاً لتقليل احتمال 413 مع الإبقاء على الوقائع الجوهرية
                 narrative_safe = narrative.strip()
