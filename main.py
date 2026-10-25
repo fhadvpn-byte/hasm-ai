@@ -659,17 +659,6 @@ def esc(value) -> str:
     return html.escape("" if value is None else str(value), quote=True)
 
 
-def sketch_data_url(uploaded) -> str:
-    if uploaded is None:
-        return ""
-    raw = uploaded.getvalue()
-    if not raw:
-        return ""
-    mime = getattr(uploaded, "type", None) or "image/jpeg"
-    encoded = base64.b64encode(raw).decode("ascii")
-    return f"data:{mime};base64,{encoded}"
-
-
 _KNOWN_SECTION_MARKERS = (
     "السرد الحر",
     "التكييف النظامي",
@@ -983,20 +972,6 @@ with sk_col2:
         height=95,
         key=f"witness_notes_{rc}"
     )
-st.markdown(
-    """
-    <h4 class="party-heading"><svg class="holo-vehicle" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 12h4.2l1.6-2.4h6.4L21 12H25a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V14a2 2 0 0 1 2-2z" fill="rgba(0,242,254,0.16)" stroke="#00f2fe" stroke-width="1.7" stroke-linejoin="round"/><circle cx="16" cy="18" r="4" fill="none" stroke="#00f2fe" stroke-width="1.7"/><circle cx="16" cy="18" r="1.5" fill="#00f2fe"/></svg>كاميرا الكروكي الميداني</h4>
-    """,
-    unsafe_allow_html=True,
-)
-sketch_image = st.file_uploader(
-    "التقاط أو رفع صورة الكروكي",
-    type=["png", "jpg", "jpeg", "webp"],
-    key=f"sketch_file_{rc}",
-    help="من الجوال يمكن التصوير بالكاميرا الخلفية أو الاختيار من الاستوديو.",
-)
-if sketch_image is not None:
-    st.image(sketch_image, caption="معاينة الكروكي الميداني", use_container_width=True)
 narrative = st.text_area(
     "السرد الحر لتفاصيل الحادث:",
     placeholder="اكتب تفاصيل الحادث هنا...",
@@ -1071,7 +1046,6 @@ if analyze_clicked:
                 witness_safe = witness_notes.strip()
                 if len(witness_safe) > 600:
                     witness_safe = witness_safe[:600] + "…"
-                sketch_photo_note = "أُرفقت صورة الكروكي الميداني ضمن المحضر." if sketch_image is not None else ""
                 solo_closing = ""
                 if num_parties == 1:
                     solo_closing = "هذا حادث مركبة واحدة. لا تنشئ طرفاً ثانياً، وكيّف الانقلاب أو الجسم الثابت أو الخروج عن الطريق بالمواد المنطبقة من المرجع، ثم أصدر نسبة الطرف الواحد."
@@ -1084,7 +1058,6 @@ if analyze_clicked:
 السرد:
 {narrative_safe}
 {"كروكي: " + sketch_safe if sketch_safe else ""}
-{sketch_photo_note}
 {"شهود/ملاحظات: " + witness_safe if witness_safe else ""}
 {solo_closing}
 """
@@ -1143,7 +1116,6 @@ if analyze_clicked:
                             "inj_dmg": f"الإصابات: {injuries} | الأضرار: {damages}",
                             "strict_mode": strict_mode,
                             "parties": parties_data,
-                            "sketch_image": sketch_data_url(sketch_image),
                         }
                     else:
                         st.error(f"⚠️ تعذر إتمام التحليل حالياً: {last_err}")
@@ -1161,15 +1133,6 @@ if st.session_state.analysis_result:
         </tr>
         """
     analysis_cards = render_analysis_cards(st.session_state.analysis_result)
-    sketch_src = meta.get("sketch_image") or ""
-    if sketch_src:
-        sketch_report_html = (
-            f'<img src="{sketch_src}" alt="الكروكي الميداني" '
-            'style="width:100%; max-height:460px; object-fit:contain; border:2px solid #00f2fe; '
-            'border-radius:16px; background:rgba(2,11,28,0.65);">'
-        )
-    else:
-        sketch_report_html = '<p dir="rtl">مساحة توثيق الكروكي الميداني: لم تُرفق صورة.</p>'
     st.html(f"""
     <div id="official-report-container" class="rtl-report" dir="rtl">
         <div class="report-holo-header">
@@ -1208,8 +1171,6 @@ if st.session_state.analysis_result:
                 {parties_rows_html}
             </tbody>
         </table>
-        <h3 class="case-heading"><span class="holo-mark" aria-hidden="true"></span>الكروكي الميداني</h3>
-        {sketch_report_html}
         <div class="report-sections" dir="rtl">{analysis_cards}</div>
     </div>
     """)
