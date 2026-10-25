@@ -290,6 +290,14 @@ footer,
     box-shadow: 0 0 10px #00f2fe, inset 0 0 6px #00f2fe;
     transform: rotate(45deg);
 }}
+.holo-vehicle {{
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 0 6px #00f2fe);
+}}
 .party-heading {{
     display: flex;
     align-items: center;
@@ -864,7 +872,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("""
 <div class="neon-section-card">
     <div class="neon-card-header">
-        <div class="neon-card-title"><span class="holo-mark" aria-hidden="true"></span>أطراف الحادث وخيارات المناورة الميدانية</div>
+        <div class="neon-card-title"><svg class="holo-vehicle" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 21h20" fill="none" stroke="#00f2fe" stroke-width="1.8" stroke-linecap="round"/><path d="M8.2 21l2.1-6.1c.3-.8 1.1-1.4 1.9-1.4h7.4c.8 0 1.5.4 1.8 1.1L23.6 21" fill="rgba(0,242,254,0.16)" stroke="#00f2fe" stroke-width="1.8" stroke-linejoin="round"/><path d="M13 13.5h5.2" fill="none" stroke="#00f2fe" stroke-width="1.4" stroke-linecap="round"/><circle cx="11" cy="21.2" r="2.15" fill="rgba(0,242,254,0.28)" stroke="#00f2fe" stroke-width="1.6"/><circle cx="21.2" cy="21.2" r="2.15" fill="rgba(0,242,254,0.28)" stroke="#00f2fe" stroke-width="1.6"/></svg>أطراف الحادث وخيارات المناورة الميدانية</div>
         <span class="neon-badge">تحليل المركبات</span>
     </div>
 """, unsafe_allow_html=True)
