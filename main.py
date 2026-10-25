@@ -616,8 +616,8 @@ def load_traffic_law_pages(pdf_path: str, start_page: int, end_page: int) -> str
                 )
         except Exception:
             extracted_text = ""
-    if len(extracted_text) > 12000:
-        extracted_text = extracted_text[:12000]
+    if len(extracted_text) > 6000:
+        extracted_text = extracted_text[:6000]
     return BUILTIN_TRAFFIC_LAW_REFERENCE + "\n\n" + extracted_text
 
 
@@ -663,26 +663,63 @@ def build_system_prompt(law_reference_text: str) -> str:
 
 
 def run_analysis(api_key: str, system_prompt: str, user_prompt: str):
-    client = Groq(api_key=api_key)
-    models_to_try = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"]
-    last_error = None
-    for model_name in models_to_try:
+    try:
+        client = Groq(api_key=api_key)
+
+        # جلب النماذج الشغالة فعلياً في حساب Groq تلقائياً لمنع خطأ 404 للأبد
+        available_models = []
         try:
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=1800,
-            )
-            response_text = completion.choices[0].message.content
-            if response_text:
-                return response_text, None
-        except Exception as error:
-            last_error = error
-    return None, last_error
+            models_resp = client.models.list()
+            for m in models_resp.data:
+                m_id = m.id
+                if not any(skip in m_id.lower() for skip in ["whisper", "guard", "tts", "vision", "embed", "playai", "allam"]):
+                    available_models.append(m_id)
+        except Exception:
+            pass
+        preferred_order = [
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "llama-3.3-70b-versatile",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "meta-llama/llama-4-maverick-17b-128e-instruct",
+            "qwen-qwq-32b",
+            "deepseek-r1-distill-llama-70b",
+            "gemma2-9b-it",
+            "llama3-70b-8192",
+            "llama3-8b-8192"
+        ]
+        models_to_try = [m for m in preferred_order if m in available_models]
+        for m in available_models:
+            if m not in models_to_try:
+                models_to_try.append(m)
+        if not models_to_try:
+            models_to_try = preferred_order
+        response_text = None
+        last_err = None
+        for m_name in models_to_try:
+            try:
+                completion = client.chat.completions.create(
+                    model=m_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.1,
+                    max_tokens=1400
+                )
+                response_text = completion.choices[0].message.content
+                if response_text:
+                    # إزالة وسم <think> إن وجد في نماذج الاستدلال
+                    response_text = re.sub(r"<think>.*?</think>", "", response_text, flags=re.DOTALL).strip()
+                    break
+            except Exception as e_mod:
+                last_err = e_mod
+                continue
+        if response_text:
+            return response_text, None
+        return None, last_err
+    except Exception as error:
+        return None, error
 
 
 st.set_page_config(
