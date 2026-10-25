@@ -911,71 +911,39 @@ MANEUVER_OPTIONS = [
     "اندفاع قسري (نتيجة صدم خلفي)"
 ]
 parties_data = []
-primary_count = min(num_parties, 4)
-p_cols = st.columns(2)
-for i in range(primary_count):
-    with p_cols[i % 2]:
+row_cols = None
+for i in range(1, num_parties + 1):
+    if (i - 1) % 2 == 0:
+        row_cols = st.columns(2)
+    with row_cols[(i - 1) % 2]:
         st.markdown(
-            f"<h4 class='party-heading'><span class='holo-mark' aria-hidden='true'></span>بيانات الطرف ({i+1})</h4>",
+            f"<h4 class='party-heading'><span class='holo-mark' aria-hidden='true'></span>بيانات الطرف ({i})</h4>",
             unsafe_allow_html=True,
         )
         r1, r2 = st.columns(2)
         with r1:
-            p_role = st.selectbox(f"صفة الطرف {i+1}", ["سائق", "مشاة", "مالك مركبة متوقفة"], key=f"p_role_{i}_{rc}")
-            p_veh = st.text_input(f"نوع المركبة {i+1}", placeholder="مثال: كامري / صالون", key=f"p_veh_{i}_{rc}")
-            p_plate = st.text_input(f"رقم اللوحة {i+1}", placeholder="ح س ص 4444", key=f"p_plate_{i}_{rc}")
-            p_dir = st.selectbox(f"الاتجاه {i+1}", ["شمال", "جنوب", "شرق", "غرب", "شمال شرقي", "شمال غربي", "جنوب شرقي", "جنوب غربي"], key=f"p_dir_{i}_{rc}")
+            p_role = st.selectbox(f"صفة الطرف {i}", ["سائق", "مشاة", "مالك مركبة متوقفة"], key=f"p_role_{i}_{rc}")
+            p_veh = st.text_input(f"نوع المركبة {i}", placeholder="مثال: كامري / صالون", key=f"p_veh_{i}_{rc}")
+            p_plate = st.text_input(f"رقم اللوحة {i}", placeholder="ح س ص 4444", key=f"p_plate_{i}_{rc}")
+            p_dir = st.selectbox(f"الاتجاه {i}", ["شمال", "جنوب", "شرق", "غرب", "شمال شرقي", "شمال غربي", "جنوب شرقي", "جنوب غربي"], key=f"p_dir_{i}_{rc}")
         with r2:
-            p_lane = st.selectbox(f"المسار {i+1}", ["أيمن", "أوسط", "أيسر", "مسار خدمة", "كتف الطريق", "داخل التقاطع"], key=f"p_lane_{i}_{rc}")
-            p_man = st.selectbox(f"المناورة {i+1}", MANEUVER_OPTIONS, key=f"p_man_{i}_{rc}")
-            p_sig = st.selectbox(f"الإشارة {i+1}", ["لا توجد إشارة", "إشارة خضراء", "إشارة حمراء", "إشارة صفراء متقطعة", "لوحة قف (STOP)", "لوحة أعطِ الأولوية"], key=f"p_sig_{i}_{rc}")
-            p_prio = st.selectbox(f"الأولوية {i+1}", ["له أولوية", "عليه أولوية للغير (يجب التوقف/التهدئة)", "متكافئ / غير محدد"], index=0 if i == 0 else 1, key=f"p_prio_{i}_{rc}")
-        p_spd = st.selectbox(f"السرعة التقديرية للطرف {i+1}", ["ضمن الحد النظامي", "زائدة عن الحد النظامي", "سرعة عالية جداً (تهور)", "متوقف تماماً"], key=f"p_spd_{i}_{rc}")
+            p_lane = st.selectbox(f"المسار {i}", ["أيمن", "أوسط", "أيسر", "مسار خدمة", "كتف الطريق", "داخل التقاطع"], key=f"p_lane_{i}_{rc}")
+            p_man = st.selectbox(f"المناورة {i}", MANEUVER_OPTIONS, key=f"p_man_{i}_{rc}")
+            p_sig = st.selectbox(f"الإشارة {i}", ["لا توجد إشارة", "إشارة خضراء", "إشارة حمراء", "إشارة صفراء متقطعة", "لوحة قف (STOP)", "لوحة أعطِ الأولوية"], key=f"p_sig_{i}_{rc}")
+            p_prio = st.selectbox(f"الأولوية {i}", ["له أولوية", "عليه أولوية للغير (يجب التوقف/التهدئة)", "متكافئ / غير محدد"], index=0 if i == 1 else 1, key=f"p_prio_{i}_{rc}")
+        p_spd = st.selectbox(f"السرعة التقديرية للطرف {i}", ["ضمن الحد النظامي", "زائدة عن الحد النظامي", "سرعة عالية جداً (تهور)", "متوقف تماماً"], key=f"p_spd_{i}_{rc}")
         parties_data.append({
-            "طرف": f"الطرف {i+1}",
+            "طرف": f"الطرف {i}",
             "الصفة": p_role,
-            "المركبة": p_veh if p_veh.strip() else f"مركبة {i+1}",
+            "المركبة": p_veh if p_veh.strip() else f"مركبة {i}",
             "اللوحة": p_plate if p_plate.strip() else "غير محدد",
             "الاتجاه": p_dir,
             "المسار": p_lane,
             "المناورة": p_man,
             "الإشارة": p_sig,
             "الأولوية": p_prio,
-            "السرعة": p_spd
+            "السرعة": p_spd,
         })
-if num_parties > 4:
-    for row_start in range(4, num_parties, 2):
-        extra_cols = st.columns(2)
-        for offset in range(2):
-            i = row_start + offset
-            if i >= num_parties:
-                continue
-            with extra_cols[offset]:
-                with st.expander(f"مركبة إضافية — الطرف {i + 1}", expanded=False):
-                    r1, r2 = st.columns(2)
-                    with r1:
-                        p_role = st.selectbox(f"صفة الطرف {i+1}", ["سائق", "مشاة", "مالك مركبة متوقفة"], key=f"p_role_{i}_{rc}")
-                        p_veh = st.text_input(f"نوع المركبة {i+1}", placeholder="مثال: كامري / صالون", key=f"p_veh_{i}_{rc}")
-                        p_plate = st.text_input(f"رقم اللوحة {i+1}", placeholder="ح س ص 4444", key=f"p_plate_{i}_{rc}")
-                        p_dir = st.selectbox(f"الاتجاه {i+1}", ["شمال", "جنوب", "شرق", "غرب", "شمال شرقي", "شمال غربي", "جنوب شرقي", "جنوب غربي"], key=f"p_dir_{i}_{rc}")
-                    with r2:
-                        p_lane = st.selectbox(f"المسار {i+1}", ["أيمن", "أوسط", "أيسر", "مسار خدمة", "كتف الطريق", "داخل التقاطع"], key=f"p_lane_{i}_{rc}")
-                        p_man = st.selectbox(f"المناورة {i+1}", MANEUVER_OPTIONS, key=f"p_man_{i}_{rc}")
-                        p_sig = st.selectbox(f"الإشارة {i+1}", ["لا توجد إشارة", "إشارة خضراء", "إشارة حمراء", "إشارة صفراء متقطعة", "لوحة قف (STOP)", "لوحة أعطِ الأولوية"], key=f"p_sig_{i}_{rc}")
-                        p_prio = st.selectbox(f"الأولوية {i+1}", ["له أولوية", "عليه أولوية للغير (يجب التوقف/التهدئة)", "متكافئ / غير محدد"], index=1, key=f"p_prio_{i}_{rc}")
-                    p_spd = st.selectbox(f"السرعة التقديرية للطرف {i+1}", ["ضمن الحد النظامي", "زائدة عن الحد النظامي", "سرعة عالية جداً (تهور)", "متوقف تماماً"], key=f"p_spd_{i}_{rc}")
-                    parties_data.append({
-                        "طرف": f"الطرف {i+1}",
-                        "الصفة": p_role,
-                        "المركبة": p_veh if p_veh.strip() else f"مركبة {i+1}",
-                        "اللوحة": p_plate if p_plate.strip() else "غير محدد",
-                        "الاتجاه": p_dir,
-                        "المسار": p_lane,
-                        "المناورة": p_man,
-                        "الإشارة": p_sig,
-                        "الأولوية": p_prio,
-                        "السرعة": p_spd
-                    })
 st.markdown("</div>", unsafe_allow_html=True)
 # 3. التحليل الهندسي والسرد الحر
 st.markdown("""
