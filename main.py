@@ -659,6 +659,17 @@ def esc(value) -> str:
     return html.escape("" if value is None else str(value), quote=True)
 
 
+def sketch_data_url(uploaded) -> str:
+    if uploaded is None:
+        return ""
+    raw = uploaded.getvalue()
+    if not raw:
+        return ""
+    mime = getattr(uploaded, "type", None) or "image/jpeg"
+    encoded = base64.b64encode(raw).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
 _KNOWN_SECTION_MARKERS = (
     "السرد الحر",
     "التكييف النظامي",
@@ -879,14 +890,14 @@ st.markdown("""
 num_parties = int(
     st.number_input(
         "عدد المركبات / الأطراف المشتركة في الحادث",
-        min_value=2,
+        min_value=1,
         max_value=15,
         value=2,
         step=1,
         key=f"party_count_{rc}",
     )
 )
-num_parties = max(2, min(15, num_parties))
+num_parties = max(1, min(15, num_parties))
 MANEUVER_OPTIONS = [
     "سير مستقيم",
     "متوقف (وقوف نظامي / عند إشارة)",
@@ -913,9 +924,13 @@ MANEUVER_OPTIONS = [
 parties_data = []
 row_cols = None
 for i in range(1, num_parties + 1):
-    if (i - 1) % 2 == 0:
-        row_cols = st.columns(2)
-    with row_cols[(i - 1) % 2]:
+    if num_parties == 1:
+        slot = st.container()
+    else:
+        if (i - 1) % 2 == 0:
+            row_cols = st.columns(2)
+        slot = row_cols[(i - 1) % 2]
+    with slot:
         st.markdown(
             f"<h4 class='party-heading'><span class='holo-mark' aria-hidden='true'></span>بيانات الطرف ({i})</h4>",
             unsafe_allow_html=True,
@@ -968,6 +983,27 @@ with sk_col2:
         height=95,
         key=f"witness_notes_{rc}"
     )
+st.markdown(
+    """
+    <h4 class="party-heading"><svg class="holo-vehicle" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 12h4.2l1.6-2.4h6.4L21 12H25a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V14a2 2 0 0 1 2-2z" fill="rgba(0,242,254,0.16)" stroke="#00f2fe" stroke-width="1.7" stroke-linejoin="round"/><circle cx="16" cy="18" r="4" fill="none" stroke="#00f2fe" stroke-width="1.7"/><circle cx="16" cy="18" r="1.5" fill="#00f2fe"/></svg>كاميرا الكروكي الميداني</h4>
+    """,
+    unsafe_allow_html=True,
+)
+cam_col, upload_col = st.columns(2)
+with cam_col:
+    sketch_camera = st.camera_input(
+        "التقاط صورة الكروكي الميداني",
+        key=f"sketch_cam_{rc}",
+    )
+with upload_col:
+    sketch_upload = st.file_uploader(
+        "رفع صورة الكروكي",
+        type=["png", "jpg", "jpeg", "webp"],
+        key=f"sketch_file_{rc}",
+    )
+sketch_image = sketch_camera if sketch_camera is not None else sketch_upload
+if sketch_image is not None:
+    st.image(sketch_image, caption="معاينة الكروكي الميداني", width="stretch")
 narrative = st.text_area(
     "السرد الحر لتفاصيل الحادث:",
     placeholder="اكتب تفاصيل الحادث هنا...",
@@ -1012,6 +1048,9 @@ if analyze_clicked:
                         f"- {p['طرف']}: الصفة ({p['الصفة']})، المركبة ({p['المركبة']})، اللوحة ({p['اللوحة']})، الاتجاه ({p['الاتجاه']})، المسار ({p['المسار']})، المناورة ({p['المناورة']})، الإشارة ({p['الإشارة']})، الأولوية ({p['الأولوية']})، السرعة ({p['السرعة']})."
                         for p in parties_data
                     ])
+                single_vehicle_rule = ""
+                if num_parties == 1:
+                    single_vehicle_rule = "إذا كان الحادث لمركبة واحدة فلا تفترض طرفاً ثانياً. كيّف الانقلاب أو الاصطدام بجسم ثابت أو الخروج عن الطريق وفق المواد المنطبقة من المرجع فقط، واذكر السند المفيد لملف المحقق، واجعل نسبة الطرف الواحد 100% أو 0% بحسب ثبوت خطئه."
                 system_prompt = f"""
 أنت محقق نظامي وهندسي معتمد لدى الإدارة العامة للمرور. حلّل الواقعة بعمق هندسي وقانوني مطلق، واستخدم فقط أرقام المواد الصحيحة من المرجع المركّز أدناه دون خلط أو اختراع تفريعات.
 [إلزام التحليل العميق]:
@@ -1028,7 +1067,7 @@ if analyze_clicked:
 [مرجع قانوني مركّز]:
 {law_reference_text}
 في حوادث التتابع المتعددة، طبّق المادة (50/2/2) لعدم ترك مسافة آمنة، وميّز هندسياً في جدول النسب بين الاصطدام المستقل وبين الدفع القسري من الخلف للمركبة المتوقفة نظامياً (0% إعفاء، وتُحمّل المسؤولية على الدافع).
-"""
+{single_vehicle_rule}"""
                 # ضغط مدخلات المستخدم أيضاً لتقليل احتمال 413 مع الإبقاء على الوقائع الجوهرية
                 narrative_safe = narrative.strip()
                 if len(narrative_safe) > 2500:
@@ -1039,6 +1078,12 @@ if analyze_clicked:
                 witness_safe = witness_notes.strip()
                 if len(witness_safe) > 600:
                     witness_safe = witness_safe[:600] + "…"
+                sketch_photo_note = "أُرفقت صورة الكروكي الميداني ضمن المحضر." if sketch_image is not None else ""
+                solo_closing = ""
+                if num_parties == 1:
+                    solo_closing = "هذا حادث مركبة واحدة. لا تنشئ طرفاً ثانياً، وكيّف الانقلاب أو الجسم الثابت أو الخروج عن الطريق بالمواد المنطبقة من المرجع، ثم أصدر نسبة الطرف الواحد."
+                else:
+                    solo_closing = "حلّل هندسياً وقانونياً بعمق، واربط الاصطدام الجانبي بأولوية الدوار/التقاطع عبر (1/1/1/6/50) و(50/2/4) عند انطباقهما، ثم أصدر النسب القياسية بحزم."
                 user_prompt = f"""
 الموقع: {site_type} | الطقس: {weather} | الطريق: {road_cond} | الإنارة: {lighting} | الصرامة: {strict_mode}
 الأطراف:
@@ -1046,8 +1091,9 @@ if analyze_clicked:
 السرد:
 {narrative_safe}
 {"كروكي: " + sketch_safe if sketch_safe else ""}
+{sketch_photo_note}
 {"شهود/ملاحظات: " + witness_safe if witness_safe else ""}
-حلّل هندسياً وقانونياً بعمق، واربط الاصطدام الجانبي بأولوية الدوار/التقاطع عبر (1/1/1/6/50) و(50/2/4) عند انطباقهما، ثم أصدر النسب القياسية بحزم.
+{solo_closing}
 """
                 try:
                     client = Groq(api_key=api_key)
@@ -1103,7 +1149,8 @@ if analyze_clicked:
                             "env": f"الطقس: {weather} | الطريق: {road_cond} | الإنارة: {lighting}",
                             "inj_dmg": f"الإصابات: {injuries} | الأضرار: {damages}",
                             "strict_mode": strict_mode,
-                            "parties": parties_data
+                            "parties": parties_data,
+                            "sketch_image": sketch_data_url(sketch_image),
                         }
                     else:
                         st.error(f"⚠️ تعذر إتمام التحليل حالياً: {last_err}")
@@ -1121,6 +1168,15 @@ if st.session_state.analysis_result:
         </tr>
         """
     analysis_cards = render_analysis_cards(st.session_state.analysis_result)
+    sketch_src = meta.get("sketch_image") or ""
+    if sketch_src:
+        sketch_report_html = (
+            f'<img src="{sketch_src}" alt="الكروكي الميداني" '
+            'style="width:100%; max-height:460px; object-fit:contain; border:2px solid #00f2fe; '
+            'border-radius:16px; background:rgba(2,11,28,0.65);">'
+        )
+    else:
+        sketch_report_html = '<p dir="rtl">مساحة توثيق الكروكي الميداني: لم تُرفق صورة.</p>'
     st.html(f"""
     <div id="official-report-container" class="rtl-report" dir="rtl">
         <div class="report-holo-header">
@@ -1159,6 +1215,8 @@ if st.session_state.analysis_result:
                 {parties_rows_html}
             </tbody>
         </table>
+        <h3 class="case-heading"><span class="holo-mark" aria-hidden="true"></span>الكروكي الميداني</h3>
+        {sketch_report_html}
         <div class="report-sections" dir="rtl">{analysis_cards}</div>
     </div>
     """)
