@@ -659,6 +659,15 @@ def esc(value) -> str:
     return html.escape("" if value is None else str(value), quote=True)
 
 
+class SketchBytes:
+    def __init__(self, data: bytes, mime: str):
+        self._data = data
+        self.type = mime or "image/jpeg"
+
+    def getvalue(self) -> bytes:
+        return self._data
+
+
 def sketch_data_url(uploaded) -> str:
     if uploaded is None:
         return ""
@@ -989,21 +998,38 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-cam_col, upload_col = st.columns(2)
-with cam_col:
-    sketch_camera = st.camera_input(
-        "التقاط صورة الكروكي الميداني",
-        key=f"sketch_cam_{rc}",
-    )
-with upload_col:
-    sketch_upload = st.file_uploader(
-        "رفع صورة الكروكي",
-        type=["png", "jpg", "jpeg", "webp"],
-        key=f"sketch_file_{rc}",
-    )
-sketch_image = sketch_camera if sketch_camera is not None else sketch_upload
+cam_exp = st.expander(
+    "اضغط هنا لفتح كاميرا الكروكي الميداني",
+    expanded=False,
+    icon="📷",
+    on_change="rerun",
+    key=f"sketch_cam_exp_{rc}",
+)
+sketch_camera = None
+if cam_exp.open:
+    with cam_exp:
+        sketch_camera = st.camera_input(
+            "التقاط صورة الكروكي الميداني",
+            key=f"sketch_cam_{rc}",
+        )
+sketch_saved_key = f"sketch_cam_bytes_{rc}"
+if sketch_camera is not None:
+    captured = sketch_camera.getvalue()
+    if captured:
+        st.session_state[sketch_saved_key] = SketchBytes(
+            captured,
+            getattr(sketch_camera, "type", None) or "image/jpeg",
+        )
+saved_camera = st.session_state.get(sketch_saved_key)
+sketch_upload = st.file_uploader(
+    "رفع صورة الكروكي",
+    type=["png", "jpg", "jpeg", "webp"],
+    key=f"sketch_file_{rc}",
+)
+sketch_image = saved_camera if saved_camera is not None else sketch_upload
 if sketch_image is not None:
-    st.image(sketch_image, caption="معاينة الكروكي الميداني", width="stretch")
+    preview_image = sketch_image.getvalue() if isinstance(sketch_image, SketchBytes) else sketch_image
+    st.image(preview_image, caption="معاينة الكروكي الميداني", width="stretch")
 narrative = st.text_area(
     "السرد الحر لتفاصيل الحادث:",
     placeholder="اكتب تفاصيل الحادث هنا...",
