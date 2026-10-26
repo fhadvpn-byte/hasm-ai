@@ -130,6 +130,13 @@ footer,
     overflow: hidden !important;
     pointer-events: none !important;
 }}
+/* إخفاء قوائم وتذييل وأيقونات منصة Streamlit عن الزوار */
+#MainMenu {{visibility: hidden !important; display: none !important;}}
+header, [data-testid="stHeader"] {{visibility: hidden !important; display: none !important;}}
+footer, [data-testid="stFooter"] {{visibility: hidden !important; display: none !important;}}
+[data-testid="stToolbar"] {{visibility: hidden !important; display: none !important;}}
+[data-testid="stDecoration"] {{display: none !important;}}
+.viewerBadge_container__1QSob, .styles_viewerBadge__1yB5_, [class^="viewerBadge"] {{display: none !important;}}
 .block-container {{
     max-width: 1050px !important;
     padding-top: 1.5rem !important;
