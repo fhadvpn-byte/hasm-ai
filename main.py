@@ -22,9 +22,11 @@ except ImportError:
     except ImportError:
         PdfReader = None
 # ==================== إعدادات الصفحة ====================
+_APP_ICON_CANDIDATES = ("traffic_logo.png", "traffic_logo.png.png", "logo.png")
+_app_icon = next((name for name in _APP_ICON_CANDIDATES if os.path.isfile(name)), "🛡️")
 st.set_page_config(
-    page_title="حسم الذكي | Vision 2030 GovTech",
-    page_icon="🚓",
+    page_title="حسم الذكي",
+    page_icon=_app_icon,
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -50,6 +52,36 @@ def get_logo_base64():
                 pass
     return None
 logo_b64 = get_logo_base64()
+if logo_b64:
+    components.html(
+        f"""
+        <script>
+        (function () {{
+          var href = "data:image/png;base64,{logo_b64}";
+          function upsert(head, selector, tag, attrs) {{
+            var el = head.querySelector(selector);
+            if (!el) {{
+              el = head.ownerDocument.createElement(tag);
+              head.appendChild(el);
+            }}
+            Object.keys(attrs).forEach(function (key) {{
+              el.setAttribute(key, attrs[key]);
+            }});
+          }}
+          try {{
+            var head = window.parent.document.head;
+            var icons = head.querySelectorAll('link[rel*="icon"]');
+            for (var i = 0; i < icons.length; i++) icons[i].setAttribute("href", href);
+            upsert(head, 'link[rel="icon"]', "link", {{rel: "icon", type: "image/png", href: href}});
+            upsert(head, 'link[rel="apple-touch-icon"]', "link", {{rel: "apple-touch-icon", href: href}});
+            upsert(head, 'meta[name="application-name"]', "meta", {{name: "application-name", content: "حسم الذكي"}});
+            upsert(head, 'meta[name="apple-mobile-web-app-title"]', "meta", {{name: "apple-mobile-web-app-title", content: "حسم الذكي"}});
+          }} catch (e) {{}}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
 if logo_b64:
     center_hologram_content = f'<img src="data:image/png;base64,{logo_b64}" class="holo-logo-img" alt="شعار المرور">'
     watermark_bg = f"""
