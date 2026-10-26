@@ -130,6 +130,23 @@ footer,
     overflow: hidden !important;
     pointer-events: none !important;
 }}
+[class^="viewerBadge"], [class*="viewerBadge"],
+[class^="profileContainer"], [class*="profileContainer"],
+[class^="profilePreview"], [class*="profilePreview"],
+[data-testid="manage-app-button"],
+.stApp > footer, footer, #MainMenu, header {{
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}}
+a[href*="streamlit.io"], a[href*="github.com"] img,
+img[src*="avatars.githubusercontent.com"] {{
+    display: none !important;
+    visibility: hidden !important;
+}}
 .block-container {{
     max-width: 1050px !important;
     padding-top: 1.5rem !important;
@@ -569,8 +586,40 @@ div.stButton > button:hover, div.stDownloadButton > button:hover {{
         page-break-inside: avoid !important;
     }}
 }}
+@media print {{
+    [class*="viewerBadge"], [class*="profile"], footer, header {{
+        display: none !important;
+    }}
+}}
 </style>
 """, unsafe_allow_html=True)
+components.html(
+    """
+    <script>
+    (function () {
+      function hideNode(el) {
+        if (!el || !el.style) return;
+        el.style.display = "none";
+      }
+      function sweep(doc) {
+        if (!doc || !doc.querySelectorAll) return;
+        var nodes = doc.querySelectorAll(
+          '[class*="viewerBadge"], [class*="profileContainer"], img[src*="avatars.githubusercontent.com"]'
+        );
+        for (var i = 0; i < nodes.length; i++) hideNode(nodes[i]);
+      }
+      function watch(doc) {
+        sweep(doc);
+        if (!doc || !doc.documentElement || typeof MutationObserver === "undefined") return;
+        var observer = new MutationObserver(function () { sweep(doc); });
+        observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true });
+      }
+      try { watch(window.parent.document); } catch (e) {}
+    })();
+    </script>
+    """,
+    height=0,
+)
 # ==================== المرجع النظامي الدقيق والمصحح للمواد (من 50 إلى 80) ====================
 # موسوعة قانونية مصغرة مركزة (لمنع خطأ 413) مع الحفاظ على النصوص الدقيقة دون حشو
 BUILTIN_TRAFFIC_LAW_REFERENCE = """
