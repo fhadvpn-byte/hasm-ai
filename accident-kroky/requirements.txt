@@ -1,0 +1,6 @@
+streamlit>=1.57
+pandas>=2.0
+Pillow>=10.0
+fpdf2>=2.8.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.4.2
