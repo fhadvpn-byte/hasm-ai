@@ -287,6 +287,15 @@ img[src*="avatars.githubusercontent.com"] {{
     z-index: 3;
     filter: drop-shadow(0 0 12px #ffffff);
 }}
+.vision-hero-card .holo-logo-img {{
+    width: 82px;
+    height: 82px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 242, 254, 0.9);
+    box-shadow: 0 0 14px #00f2fe, 0 0 26px rgba(56, 189, 248, 0.45);
+    filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.65));
+}}
 @keyframes pulseGlow {{
     0%, 100% {{ transform: scale(1); opacity: 0.95; }}
     50% {{ transform: scale(1.04); opacity: 1; box-shadow: 0 0 42px #00f2fe, inset 0 0 30px #00f2fe; }}
