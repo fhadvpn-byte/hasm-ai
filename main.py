@@ -22,7 +22,7 @@ except ImportError:
     except ImportError:
         PdfReader = None
 # ==================== إعدادات الصفحة ====================
-_APP_ICON_CANDIDATES = ("traffic_logo.png", "traffic_logo.png.png", "logo.png")
+_APP_ICON_CANDIDATES = ("61909.png", "traffic_logo.png", "traffic_logo.png.png", "logo.png")
 _app_icon = next((name for name in _APP_ICON_CANDIDATES if os.path.isfile(name)), "🛡️")
 st.set_page_config(
     page_title="حسم الذكي",
@@ -41,9 +41,9 @@ def reset_all_fields():
     st.session_state.analysis_result = None
     st.session_state.report_meta = {}
     st.session_state.reset_counter += 1
-# ==================== قراءة شعار المرور ====================
-def get_logo_base64():
-    for file_name in ["traffic_logo.png", "traffic_logo.png.png", "logo.png"]:
+# ==================== قراءة شعار الواجهة (منفصل عن شعار التقرير) ====================
+def get_image_base64(file_names):
+    for file_name in file_names:
         if os.path.exists(file_name):
             try:
                 with open(file_name, "rb") as f:
@@ -51,13 +51,31 @@ def get_logo_base64():
             except Exception:
                 pass
     return None
-logo_b64 = get_logo_base64()
-if logo_b64:
+
+
+def hologram_img_html(image_b64, alt_text):
+    if not image_b64:
+        return """
+    <svg viewBox="0 0 100 100" width="78" height="78" fill="none">
+        <circle cx="50" cy="50" r="44" stroke="#00f2fe" stroke-width="2" stroke-dasharray="6 4"/>
+        <circle cx="50" cy="50" r="32" stroke="#38bdf8" stroke-width="1.5" fill="rgba(0,242,254,0.12)"/>
+        <path d="M50 22L72 34V54C72 69 50 80 50 80C50 80 28 69 28 54V34L50 22Z" stroke="#ffffff" stroke-width="2.2" fill="rgba(14,165,233,0.35)"/>
+        <circle cx="50" cy="50" r="8" fill="#00f2fe"/>
+    </svg>
+    """
+    return f'<img src="data:image/png;base64,{image_b64}" class="holo-logo-img" alt="{html.escape(alt_text)}">'
+
+
+ui_logo_b64 = get_image_base64(["61909.png"])
+report_logo_b64 = get_image_base64(["traffic_logo.png", "traffic_logo.png.png", "logo.png"])
+center_hologram_content = hologram_img_html(ui_logo_b64, "شعار حسم")
+report_hologram_content = hologram_img_html(report_logo_b64, "شعار المرور")
+if ui_logo_b64:
     components.html(
         f"""
         <script>
         (function () {{
-          var href = "data:image/png;base64,{logo_b64}";
+          var href = "data:image/png;base64,{ui_logo_b64}";
           function upsert(head, selector, tag, attrs) {{
             var el = head.querySelector(selector);
             if (!el) {{
@@ -82,8 +100,7 @@ if logo_b64:
         """,
         height=0,
     )
-if logo_b64:
-    center_hologram_content = f'<img src="data:image/png;base64,{logo_b64}" class="holo-logo-img" alt="شعار المرور">'
+if ui_logo_b64:
     watermark_bg = f"""
     .stApp::after {{
         content: "";
@@ -93,7 +110,7 @@ if logo_b64:
         transform: translate(-50%, -50%);
         width: 480px;
         height: 480px;
-        background-image: url("data:image/png;base64,{logo_b64}");
+        background-image: url("data:image/png;base64,{ui_logo_b64}");
         background-repeat: no-repeat;
         background-position: center;
         background-size: contain;
@@ -104,14 +121,6 @@ if logo_b64:
     }}
     """
 else:
-    center_hologram_content = """
-    <svg viewBox="0 0 100 100" width="78" height="78" fill="none">
-        <circle cx="50" cy="50" r="44" stroke="#00f2fe" stroke-width="2" stroke-dasharray="6 4"/>
-        <circle cx="50" cy="50" r="32" stroke="#38bdf8" stroke-width="1.5" fill="rgba(0,242,254,0.12)"/>
-        <path d="M50 22L72 34V54C72 69 50 80 50 80C50 80 28 69 28 54V34L50 22Z" stroke="#ffffff" stroke-width="2.2" fill="rgba(14,165,233,0.35)"/>
-        <circle cx="50" cy="50" r="8" fill="#00f2fe"/>
-    </svg>
-    """
     watermark_bg = ""
 # ==================== التصميم الهولوغرامي الإبداعي الكامل (Vision 2030 Hologram UI) ====================
 st.markdown(f"""
@@ -1246,7 +1255,7 @@ if st.session_state.analysis_result:
             <div class="holo-orb-wrapper" style="width:105px; height:105px;">
                 <div class="holo-orb-ring-outer"></div>
                 <div class="holo-orb-ring-inner"></div>
-                {center_hologram_content}
+                {report_hologram_content}
             </div>
         </div>
         <h3 class="case-heading"><span class="holo-mark" aria-hidden="true"></span>بيانات المحضر وأطراف الحادث</h3>
