@@ -30,6 +30,49 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+def hide_streamlit_cloud_badges():
+    import streamlit as st
+    import streamlit.components.v1 as components
+    st.markdown("""
+        <style>
+        #MainMenu, header[data-testid="stHeader"], [data-testid="stToolbar"],
+        [data-testid="stDecoration"], [data-testid="manage-app-button"],
+        .stDeployButton, footer { display: none !important; visibility: hidden !important; }
+        iframe[height="0"] { height: 0px !important; margin: -1rem 0 0 0 !important; display: block !important; }
+        </style>
+    """, unsafe_allow_html=True)
+    components.html("""
+        <script>
+        (function() {
+            const css = `
+                [class*="viewerBadge"], [class*="_viewerBadge"], [class*="_link_gzau3"],
+                [class*="profileContainer"], [class*="_profileContainer"],
+                [class*="profilePreview"], [class*="_profilePreview"],
+                a[href*="streamlit.io/cloud"], a[href*="share.streamlit.io/user"],
+                [data-testid="manage-app-button"], [data-testid="stToolbar"],
+                header[data-testid="stHeader"], footer {
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                }
+            `;
+            [window.parent, window.top].forEach(function(w) {
+                try {
+                    if (w && w.document && w.document.head && !w.document.getElementById("st-clean-badges")) {
+                        const s = w.document.createElement("style");
+                        s.id = "st-clean-badges";
+                        s.innerHTML = css;
+                        w.document.head.appendChild(s);
+                    }
+                } catch (e) {}
+            });
+        })();
+        </script>
+    """, height=0)
+hide_streamlit_cloud_badges()
 # ==================== إدارة الجلسة (Session State) ====================
 if "reset_counter" not in st.session_state:
     st.session_state.reset_counter = 0
