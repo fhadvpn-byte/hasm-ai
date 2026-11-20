@@ -3,8 +3,12 @@ import streamlit as st
 import os
 import base64
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import streamlit.components.v1 as components
+
+_APP_DIR = Path(__file__).resolve().parent
+KSA_TZ = timezone(timedelta(hours=3))
 # استيراد المكتبات بمرونة
 try:
     from groq import Groq
@@ -23,7 +27,7 @@ except ImportError:
         PdfReader = None
 # ==================== إعدادات الصفحة ====================
 _APP_ICON_CANDIDATES = ("61909.png", "traffic_logo.png", "traffic_logo.png.png", "logo.png")
-_app_icon = next((name for name in _APP_ICON_CANDIDATES if os.path.isfile(name)), "🛡️")
+_app_icon = next((str(_APP_DIR / name) for name in _APP_ICON_CANDIDATES if (_APP_DIR / name).is_file()), "🛡️")
 st.set_page_config(
     page_title="حسم الذكي",
     page_icon=_app_icon,
@@ -87,13 +91,30 @@ def reset_all_fields():
 # ==================== قراءة شعار الواجهة (منفصل عن شعار التقرير) ====================
 def get_image_base64(file_names):
     for file_name in file_names:
-        if os.path.exists(file_name):
+        path = _APP_DIR / file_name
+        if path.is_file():
             try:
-                with open(file_name, "rb") as f:
+                with open(path, "rb") as f:
                     return base64.b64encode(f.read()).decode("utf-8")
             except Exception:
                 pass
     return None
+
+
+def load_groq_api_key():
+    try:
+        key = st.secrets["GROQ_API_KEY"]
+        if key:
+            return str(key).strip()
+    except Exception:
+        pass
+    return str(os.environ.get("GROQ_API_KEY") or "").strip()
+
+
+def sanitize_report_filename(name) -> str:
+    cleaned = re.sub(r'[\\/:*?"<>|\s]+', "_", str(name or "report"))
+    cleaned = cleaned.strip("._") or "report"
+    return cleaned[:80]
 
 
 def hologram_img_html(image_b64, alt_text):
@@ -720,8 +741,17 @@ BUILTIN_TRAFFIC_LAW_REFERENCE = """
 - (54): أفضلية مركبات الطوارئ أثناء المهمة الرسمية دون إعفاء من واجب السلامة.
 - (55): تنظيم سير المشاة وعبور الطرق وممراتهم وإشاراتهم.
 د) المواد (60)-(62) المسؤولية والتحقيق:
-- (60): تعريف الحادث؛ نسب المسؤولية القياسية فقط: 100% / 75% / 50% / 25% / 0% ومجموعها 100%.
+- (60): تعريف الحادث؛ نسب قياسية: 100% / 75% / 50% / 25% / 0%. لمجموع الأطراف أكثر من واحد يكون المجموع 100%؛ وللطرف الواحد 100% أو 0% بحسب ثبوت الخطأ دون اختلاق طرف ثانٍ.
 - (61)/(62): اختصاص المرور بالمعاينة ورفع الآثار وتحديد نسب الإدانة.
+ه) مناورات ميدانية مكمّلة:
+- (28): عدم تثبيت/تغطية الحمولة.
+- (32): قيادة بلا رخصة مخالفة إدارية مستقلة ما لم تثبت سببيتها للحادث.
+- (50/2/5): فرامل مفاجئة لغير ضرورة.
+- (50/2/1): الرجوع للخلف مع السيطرة وتكييف السرعة.
+- (50/2/3) و(62/2/1): الوقوف الخاطئ أو التعطل بدون تحذير.
+- (50/8): فتح باب المركبة دون التأكد من الخلو.
+- (60/5) و(62/2/3): الحيوانات السائبة.
+- (62) و(63): الحوادث الجسيمة والهروب.
 """
 PDF_EXTRACT_CHAR_LIMIT = 3500
 TOTAL_LAW_CONTEXT_CHAR_LIMIT = 6500
@@ -730,10 +760,13 @@ TOTAL_LAW_CONTEXT_CHAR_LIMIT = 6500
 def load_traffic_law_pages(start_page=50, end_page=80):
     """يستخرج مقطعاً مركزاً من PDF بحد آمن لمنع تجاوز Limit 8000 / خطأ 413."""
     pdf_path = None
-    for f in os.listdir("."):
-        if f.lower().endswith(".pdf"):
-            pdf_path = f
-            break
+    try:
+        for f in sorted(_APP_DIR.iterdir()):
+            if f.is_file() and f.suffix.lower() == ".pdf":
+                pdf_path = str(f)
+                break
+    except Exception:
+        pdf_path = None
     extracted_text = ""
     if pdf_path and os.path.exists(pdf_path):
         try:
@@ -773,7 +806,8 @@ def clean_ai_output(text: str) -> str:
     text = re.sub(r"\(صفحات\s*50\s*-\s*80\)", "", text)
     text = re.sub(r"\(الصفحات\s*50\s*-\s*80\)", "", text)
     text = re.sub(r"^>\s*", "", text, flags=re.MULTILINE)
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"(?is)<think>.*?</think>", "", text)
+    text = re.sub(r"(?is)<think>.*$", "", text)
     return text.strip()
 
 
@@ -848,7 +882,7 @@ def _is_separator_row(line: str) -> bool:
 
 
 def _is_list_item(line: str) -> bool:
-    return re.match(r"^(?:[-*•]|\d+[\.\)])\s+\S", line.strip()) is not None
+    return re.match(r"^(?:[-*•]|[\d٠-٩]+[\.\)\-–])\s+\S", line.strip()) is not None
 
 
 def markdown_body_to_html(body: str) -> str:
@@ -883,9 +917,9 @@ def markdown_body_to_html(body: str) -> str:
             continue
         if _is_list_item(stripped):
             items = []
-            ordered = re.match(r"^\d+[\.\)]\s+", stripped) is not None
+            ordered = re.match(r"^[\d٠-٩]+[\.\)\-–]\s+", stripped) is not None
             while index < len(lines) and _is_list_item(lines[index].strip()):
-                item = re.sub(r"^(?:[-*•]|\d+[\.\)])\s+", "", lines[index].strip())
+                item = re.sub(r"^(?:[-*•]|[\d٠-٩]+[\.\)\-–])\s+", "", lines[index].strip())
                 items.append(f"<li>{_inline_format(item)}</li>")
                 index += 1
             tag = "ol" if ordered else "ul"
@@ -1056,7 +1090,17 @@ for i in range(1, num_parties + 1):
             p_lane = st.selectbox(f"المسار {i}", ["أيمن", "أوسط", "أيسر", "مسار خدمة", "كتف الطريق", "داخل التقاطع"], key=f"p_lane_{i}_{rc}")
             p_man = st.selectbox(f"المناورة {i}", MANEUVER_OPTIONS, key=f"p_man_{i}_{rc}")
             p_sig = st.selectbox(f"الإشارة {i}", ["لا توجد إشارة", "إشارة خضراء", "إشارة حمراء", "إشارة صفراء متقطعة", "لوحة قف (STOP)", "لوحة أعطِ الأولوية"], key=f"p_sig_{i}_{rc}")
-            p_prio = st.selectbox(f"الأولوية {i}", ["له أولوية", "عليه أولوية للغير (يجب التوقف/التهدئة)", "متكافئ / غير محدد"], index=0 if i == 1 else 1, key=f"p_prio_{i}_{rc}")
+            p_prio = st.selectbox(
+                f"الأولوية {i}",
+                [
+                    "تُستنتج تلقائياً من الموقع والمناورة",
+                    "له أولوية نظامية",
+                    "عليه أولوية للغير (يجب التوقف/التهدئة)",
+                    "متكافئ",
+                ],
+                index=0,
+                key=f"p_prio_{i}_{rc}",
+            )
         p_spd = st.selectbox(f"السرعة التقديرية للطرف {i}", ["ضمن الحد النظامي", "زائدة عن الحد النظامي", "سرعة عالية جداً (تهور)", "متوقف تماماً"], key=f"p_spd_{i}_{rc}")
         parties_data.append({
             "طرف": f"الطرف {i}",
@@ -1121,9 +1165,9 @@ if analyze_clicked:
     if not narrative.strip():
         st.warning("⚠️ يرجى كتابة تفاصيل الحادث في خانة (السرد الحر) قبل بدء التحليل.")
     else:
-        api_key = st.secrets.get("GROQ_API_KEY", None) or os.environ.get("GROQ_API_KEY", None)
+        api_key = load_groq_api_key()
         if not api_key:
-            st.error("❌ لم يتم العثور على مفتاح `GROQ_API_KEY` في إعدادات Secrets.")
+            st.error("❌ لم يتم العثور على مفتاح `GROQ_API_KEY` في إعدادات Secrets أو متغيرات البيئة.")
         elif Groq is None:
             st.error("❌ مكتبة `groq` غير مثبتة.")
         else:
@@ -1157,7 +1201,7 @@ if analyze_clicked:
 2. قاعدة هندسية قاطعة: مقدمة مركبة (أ) في جانب/أبواب مركبة (ب) داخل تقاطع أو دوار = دليل أن (ب) كانت متقدمة ودخلت أولاً. طبّق (1/1/1/6/50) لحماية المتقدم/داخل الدوار، و(50/2/4) على من دخل دون تهدئة أو دون التأكد من الخلو.
 3. الأفضلية غير المنظمة: (1/1/6/50) وتفريعاتها؛ المستقيم عند التحادي (1/1/2/6/50)؛ طريق الخدمة (1/1/3/6/50)؛ علامات الأولوية (51/6/2)؛ جهة السير يمنى (53). ممنوع استخدام (5/50) على السيارات.
 4. قاعدة حاسمة لتوزيع المسؤولية: يُمنع منعاً باتاً إعطاء نسبة (0% إعفاء كامل) لأي طرف تكون سرعته التقديرية (سرعة زائدة) أو (سرعة عالية جداً / تهور) حتى لو كانت له أولوية السير في التقاطع أو الطريق. في حال اجتماع خطأ عدم إعطاء الأولوية من طرف مع وجود سرعة زائدة أو تهور من الطرف صاحب الأولوية، يجب تطبيق مبدأ الاشتراك في الخطأ وتوزيع النسب (مثلاً 75% على متجاوز الأولوية و 25% على المسرع، أو 50% / 50% في حال السرعة العالية جداً والتهور)، مع إسناد مخالفة السرعة وعدم الاحتراز للمواد النظامية المعتمدة مثل (50/2/1) و (50/2/4) و (51). اقرأ حقل «السرعة التقديرية المدخلة صراحةً» لكل طرف والتزم به حرفياً في جدول النسب والخلاصة.
-5. النسب بحزم حصري فقط: 100% / 75% / 50% / 25% / 0% ومجموعها 100%. لا تتهرب من الحكم. في الخلاصة اذكر النسبة رقماً لكل طرف.
+5. النسب بحزم حصري فقط: 100% / 75% / 50% / 25% / 0%. إذا كان عدد الأطراف أكثر من واحد فمجموعها 100% دائماً. إذا كان الطرف واحداً فقط فيُسمح بـ 100% عند ثبوت خطئه أو 0% عند انتفاء خطئه تماماً، دون اختلاق طرف ثانٍ. لا تتهرب من الحكم. في الخلاصة اذكر النسبة رقماً لكل طرف.
 6. أكمل التقرير كاملاً دون انقطاع بهذه الأقسام فقط:
 ### السرد الحر وتحليل الوقائع
 ### التكييف النظامي والمواد المستند إليها
@@ -1200,14 +1244,29 @@ if analyze_clicked:
                         models_resp = client.models.list()
                         for m in models_resp.data:
                             m_id = m.id
-                            if not any(skip in m_id.lower() for skip in ["whisper", "guard", "tts", "vision", "embed", "playai", "allam"]):
+                            if not any(
+                                skip in m_id.lower()
+                                for skip in (
+                                    "whisper",
+                                    "guard",
+                                    "tts",
+                                    "vision",
+                                    "embed",
+                                    "playai",
+                                    "allam",
+                                    "compound",
+                                    "prompt-guard",
+                                )
+                            ):
                                 available_models.append(m_id)
                     except Exception:
                         pass
                     preferred_order = [
                         "llama-3.3-70b-versatile",
-                        "deepseek-r1-distill-llama-70b",
-                        "gemma2-9b-it",
+                        "qwen/qwen3-32b",
+                        "meta-llama/llama-4-maverick-17b-128e-instruct",
+                        "meta-llama/llama-4-scout-17b-16e-instruct",
+                        "llama-3.1-8b-instant",
                     ]
                     models_to_try = [m for m in preferred_order if m in available_models]
                     for m in available_models:
@@ -1241,7 +1300,7 @@ if analyze_clicked:
                             "report_no": report_no if report_no.strip() else "غير محدد",
                             "inv_name": inv_name if inv_name.strip() else "غير محدد",
                             "inv_id": inv_id if inv_id.strip() else "غير محدد",
-                            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "datetime": datetime.now(KSA_TZ).strftime("%Y-%m-%d %H:%M:%S"),
                             "location": city if city.strip() else "غير محدد",
                             "site_type": site_type,
                             "env": f"الطقس: {weather} | الطريق: {road_cond} | الإنارة: {lighting}",
@@ -1307,12 +1366,80 @@ if st.session_state.analysis_result:
     </div>
     """)
     st.markdown('<div class="no-print" style="margin-top: 18px;">', unsafe_allow_html=True)
-    act_col1, act_col2 = st.columns(2)
-    with act_col1:
-        if st.button("🖨️ طباعة التقرير الرسمي (PDF)", use_container_width=True):
-            components.html("<script>window.parent.print();</script>", height=0)
-    with act_col2:
-        full_txt_report = f"""حسم الذكي للحوادث المرورية - تقرير نظامي رسمي
+    components.html(
+        """
+        <style>
+          html, body { margin: 0; padding: 0; background: transparent; direction: rtl; }
+          .hasm-print-bar { display: flex; gap: 10px; width: 100%; }
+          .hasm-print-bar button {
+            flex: 1;
+            height: 52px;
+            border: 0;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: Tahoma, Arial, sans-serif;
+          }
+          .btn-official { background: #0f3d68; color: #fff; }
+          .btn-holo { background: linear-gradient(90deg, #0284c7 0%, #00f2fe 100%); color: #011627; }
+        </style>
+        <div class="hasm-print-bar">
+          <button class="btn-official" type="button" onclick="printHasm('official')">🖨️ طباعة رسمية A4 (خلفية بيضاء للورق)</button>
+          <button class="btn-holo" type="button" onclick="printHasm('holo')">🌌 طباعة / حفظ PDF (التصميم الهولوغرامي)</button>
+        </div>
+        <script>
+        function printHasm(mode) {
+          try {
+            var src = window.parent.document.getElementById('official-report-container');
+            if (!src) return;
+            var officialCss = `
+              @page { size: A4 portrait; margin: 12mm; }
+              html, body { margin: 0; padding: 0; background: #ffffff !important; color: #111111 !important; font-family: Tahoma, Arial, sans-serif; direction: rtl; text-align: right; }
+              #official-report-container, #official-report-container * {
+                background: #ffffff !important;
+                color: #111111 !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+                border-color: #111111 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              #official-report-container { border: none !important; padding: 0 !important; margin: 0 !important; }
+              table { width: 100%; border-collapse: collapse; }
+              th { background: #111111 !important; color: #ffffff !important; border: 1px solid #111111 !important; padding: 8px; }
+              td { background: #ffffff !important; color: #111111 !important; border: 1px solid #333333 !important; padding: 8px; }
+              tr:nth-child(even) td { background: #f4f4f4 !important; color: #111111 !important; }
+              h2, h3, h4, p, li, div, span { color: #111111 !important; }
+              img { max-width: 90px; height: auto; }
+            `;
+            var holoCss = '';
+            try {
+              var tags = window.parent.document.querySelectorAll('style');
+              for (var i = 0; i < tags.length; i++) holoCss += tags[i].innerHTML || '';
+            } catch (e) {}
+            holoCss += `
+              @page { size: A4 portrait; margin: 8mm; }
+              html, body { margin: 0; padding: 8px; background: #020b1c !important; }
+              #official-report-container { display: block !important; }
+              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            `;
+            var css = mode === 'official' ? officialCss : holoCss;
+            var html = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير حسم</title><style>' + css + '</style></head><body>' + src.outerHTML + '</body></html>';
+            var w = window.open('', '_blank');
+            if (!w) return;
+            w.document.open();
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+          } catch (e) {}
+        }
+        </script>
+        """,
+        height=64,
+    )
+    full_txt_report = f"""حسم الذكي للحوادث المرورية - تقرير نظامي رسمي
 =================================================
 رقم المحضر: {meta.get('report_no')}
 المحقق: {meta.get('inv_name')} (رتبة: {meta.get('inv_id')})
@@ -1321,11 +1448,11 @@ if st.session_state.analysis_result:
 =================================================
 {plain_analysis_text(st.session_state.analysis_result)}
 """
-        st.download_button(
-            label="💾 حفظ وتحميل التقرير",
-            data=full_txt_report.encode("utf-8"),
-            file_name=f"Hasm_Report_{meta.get('report_no')}.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
+    st.download_button(
+        label="💾 حفظ وتحميل التقرير",
+        data=full_txt_report.encode("utf-8"),
+        file_name=f"Hasm_Report_{sanitize_report_filename(meta.get('report_no'))}.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
     st.markdown('</div>', unsafe_allow_html=True)
