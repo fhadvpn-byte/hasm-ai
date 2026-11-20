@@ -152,6 +152,9 @@ html, body, [class*="css"], .stApp {{
     z-index: 0;
 }}
 {watermark_bg}
+#MainMenu, header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], footer {{
+    display: none !important;
+}}
 header,
 [data-testid="stHeader"],
 [data-testid="stHeaderActionElements"],
@@ -647,80 +650,6 @@ div.stButton > button:hover, div.stDownloadButton > button:hover {{
 }}
 </style>
 """, unsafe_allow_html=True)
-def render_device_bootstrap():
-    components.html(
-        """
-        <script>
-        (function () {
-          var STYLE_ID = "hide-st-cloud-badges";
-          var SELECTOR = [
-            '[class*="viewerBadge"]',
-            '[class*="_viewerBadge"]',
-            '[class*="_link_gzau3"]',
-            '[class*="profileContainer"]',
-            '[class*="_profileContainer"]',
-            '[class*="profilePreview"]',
-            '[class*="_profilePreview"]',
-            'a[href*="streamlit.io"]',
-            'a[href*="share.streamlit.io/user"]',
-            'img[src*="avatars.githubusercontent.com"]',
-            '[data-testid="manage-app-button"]',
-            '[data-testid="stToolbar"]',
-            'header[data-testid="stHeader"]',
-            'footer'
-          ].join(",");
-          var HIDE_CSS = SELECTOR + "{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;width:0 !important;height:0 !important;}";
-          function isProtected(el) {
-            if (!el || !el.tagName) return true;
-            if (el.id === "root") return true;
-            var tag = String(el.tagName).toUpperCase();
-            if (tag === "IFRAME" && (el.id === "root" || (el.getAttribute("title") || "").toLowerCase().indexOf("streamlit") !== -1)) return true;
-            return false;
-          }
-          function applyHide(el) {
-            if (!el || !el.style || isProtected(el)) return;
-            el.style.setProperty("display", "none", "important");
-            el.style.setProperty("visibility", "hidden", "important");
-            el.style.setProperty("opacity", "0", "important");
-            el.style.setProperty("pointer-events", "none", "important");
-            el.style.setProperty("width", "0", "important");
-            el.style.setProperty("height", "0", "important");
-          }
-          function injectStyle(doc) {
-            if (!doc || !doc.head) return;
-            var style = doc.getElementById(STYLE_ID);
-            if (!style) {
-              style = doc.createElement("style");
-              style.id = STYLE_ID;
-              doc.head.appendChild(style);
-            }
-            style.textContent = HIDE_CSS;
-          }
-          function sweep(doc) {
-            if (!doc || !doc.querySelectorAll) return;
-            injectStyle(doc);
-            var nodes = doc.querySelectorAll(SELECTOR);
-            for (var i = 0; i < nodes.length; i++) applyHide(nodes[i]);
-          }
-          function watch(doc) {
-            if (!doc) return;
-            sweep(doc);
-            if (!doc.documentElement || typeof MutationObserver === "undefined") return;
-            if (doc.documentElement.getAttribute("data-hasm-badge-watch") === "1") return;
-            doc.documentElement.setAttribute("data-hasm-badge-watch", "1");
-            var observer = new MutationObserver(function () { sweep(doc); });
-            observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true });
-          }
-          try { watch(window.parent && window.parent.document); } catch (e) {}
-          try { watch(window.top && window.top.document); } catch (e) {}
-        })();
-        </script>
-        """,
-        height=0,
-    )
-
-
-render_device_bootstrap()
 # ==================== المرجع النظامي الدقيق والمصحح للمواد (من 50 إلى 80) ====================
 # موسوعة قانونية مصغرة مركزة (لمنع خطأ 413) مع الحفاظ على النصوص الدقيقة دون حشو
 BUILTIN_TRAFFIC_LAW_REFERENCE = """
